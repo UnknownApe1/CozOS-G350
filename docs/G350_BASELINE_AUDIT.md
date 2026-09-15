@@ -57,23 +57,21 @@ building CozOS:
   shortcut mismatch fixed above.
 - The frontend does not show a status bar. This is tracked separately as a
   presentation/default-setting issue.
-- A brief power-button press appears to power the unit off. A cold-boot-logo
-  check is still required to distinguish a failed suspend from a suspend state
-  that blanks the display and LED.
+- A brief power-button press suspends the unit and the next brief press resumes
+  it correctly. One of the five required consecutive suspend cycles has passed.
 - The rumble motor runs during startup, reproducing KNULLI's known G350 boot
   rumble issue. Gameplay rumble has not yet been tested.
-- Headphone hot-plug has not yet been tested.
+- Headphone insertion routes audio to the headphones and removal returns audio
+  to the speaker.
 
 ## Must be verified on hardware
 
 1. Volume buttons repeat correctly when held.
 2. The CozOS FN + Volume fix adjusts brightness without also changing volume.
-3. Headphone insertion/removal routes audio correctly.
-4. A brief power press suspends and resumes without displaying the full KNULLI
-   boot sequence.
-5. Suspend/resume restores both audio and controls five times in a row.
-6. Gameplay rumble works without leaving the motor active during startup.
-7. Battery readings are plausible across a full charge/discharge cycle.
+3. Suspend/resume restores both audio and controls for four more consecutive
+   cycles.
+4. Gameplay rumble works without leaving the motor active during startup.
+5. Battery readings are plausible across a full charge/discharge cycle.
 
 ## Deliberately unchanged
 
