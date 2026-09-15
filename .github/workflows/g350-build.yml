@@ -115,8 +115,8 @@ jobs:
           rm -rf "${extract_dir}"
           mkdir -p "${extract_dir}" "$(dirname "${destination}")"
           7z e -y -o"${extract_dir}" "${source_7z}" \
-            libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl \
-            libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl
+            rk3326_r13p0_gbm_with_vulkan_and_cl/libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl \
+            rk3326_r13p0_gbm_with_vulkan_and_cl/libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl
           test -s "${extract_dir}/libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl"
           test -s "${extract_dir}/libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl"
 
