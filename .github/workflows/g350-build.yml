@@ -61,6 +61,37 @@ jobs:
           docker image ls knulli/knulli-build
           df -h /
 
+      - name: Verify and repair upstream Armbian firmware hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="f80f5986fbc49ab91fe4342fd896fbd47e851e25"
+          archive="dl/armbian-firmware/armbian-firmware-${version}-git4.tar.gz"
+          hash_file="buildroot/package/armbian-firmware/armbian-firmware.hash"
+
+          # KNULLI updated the pinned commit but left only the previous archive
+          # hash in Buildroot. Generate the archive with Buildroot's own git
+          # backend, verify the immutable commit, then add its calculated hash.
+          set +e
+          make rk3326-build \
+            BATCH_MODE=1 \
+            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
+            CMD=armbian-firmware-source
+          probe_status=$?
+          set -e
+
+          test -f "${archive}"
+          test "$(git --git-dir=dl/armbian-firmware/git/.git rev-parse HEAD)" = "${version}"
+
+          digest="$(sha256sum "${archive}" | awk '{print $1}')"
+          test -n "${digest}"
+          if ! grep -Fq "  ${archive##*/}" "${hash_file}"; then
+            printf 'sha256  %s  %s\n' "${digest}" "${archive##*/}" >> "${hash_file}"
+          fi
+          grep -F "  ${archive##*/}" "${hash_file}"
+          printf 'armbian_firmware_sha256=%s\n' "${digest}" | tee -a cozos-g350-build-metadata.txt
+          printf 'Initial source probe exit status: %s (expected nonzero while the hash is absent)\n' "${probe_status}"
+
       - name: Build G350-only image
         shell: bash
         run: |
