@@ -68,8 +68,8 @@ check blocks the stable label and produces another test build instead.
 | Right analog stick | Pass | |
 | FN/Menu and hotkeys | Pass | FN/Menu itself works. |
 | Speaker/volume | Pass | Speaker and volume buttons work. |
-| Headphone hot-plug | Not tested | |
-| Suspend/resume | Needs verification | A short power press appears to shut down; distinguish suspend from a full reboot. |
+| Headphone hot-plug | Pass | Audio switches to headphones and returns to the speaker. |
+| Suspend/resume | Pass (1/5) | Short power press suspends and resumes correctly. |
 | Clean shutdown | Not tested | |
 | Battery reading | Not tested | |
 | Rumble at boot/gameplay | Fail at boot | Device rumbles during startup; gameplay rumble not tested. |
