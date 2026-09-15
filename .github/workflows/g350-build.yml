@@ -2,9 +2,9 @@ name: CozOS G350 cloud build
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
-      - cozzios-g350
+      - knulli-main
     paths:
       - .github/workflows/g350-build.yml
 
@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: cozos-g350-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-g350:
