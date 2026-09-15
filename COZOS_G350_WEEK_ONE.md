@@ -59,22 +59,25 @@ check blocks the stable label and produces another test build instead.
 
 | Check | Result | Notes |
 |---|---|---|
-| Cold boot | Not tested | |
+| Cold boot | Pass (1/3) | Official KNULLI image reaches the frontend. |
 | Reboot | Not tested | |
-| Screen/orientation | Not tested | |
-| Brightness keys | Not tested | |
-| D-pad and face buttons | Not tested | |
-| Left analog stick | Not tested | |
-| Right analog stick | Not tested | |
-| FN/Menu and hotkeys | Not tested | |
-| Speaker/volume | Not tested | |
+| Screen/orientation | Pass | Display works correctly. |
+| Brightness keys | Partial | Normal brightness works; FN + Volume fails in the frontend on upstream KNULLI. CozOS fix staged. |
+| D-pad and face buttons | Pass | |
+| Left analog stick | Pass | |
+| Right analog stick | Pass | |
+| FN/Menu and hotkeys | Pass | FN/Menu itself works. |
+| Speaker/volume | Pass | Speaker and volume buttons work. |
 | Headphone hot-plug | Not tested | |
-| Suspend/resume | Not tested | |
+| Suspend/resume | Needs verification | A short power press appears to shut down; distinguish suspend from a full reboot. |
 | Clean shutdown | Not tested | |
 | Battery reading | Not tested | |
-| Rumble at boot/gameplay | Not tested | |
+| Rumble at boot/gameplay | Fail at boot | Device rumbles during startup; gameplay rumble not tested. |
 | USB card reader/OTG | Not tested | |
 | Wi-Fi dongle, if used | Not tested | |
+
+The missing frontend status bar is tracked as a presentation/default-setting
+issue rather than a hardware failure.
 
 ## Build
 
