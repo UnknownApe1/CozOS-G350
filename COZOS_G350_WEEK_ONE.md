@@ -69,7 +69,7 @@ check blocks the stable label and produces another test build instead.
 | FN/Menu and hotkeys | Pass | FN/Menu itself works. |
 | Speaker/volume | Pass | Speaker and volume buttons work. |
 | Headphone hot-plug | Pass | Audio switches to headphones and returns to the speaker. |
-| Suspend/resume | Pass (1/5) | Short power press suspends and resumes correctly. |
+| Suspend/resume | Pass (5/5) | Five consecutive cycles completed; controls and audio still work after waking. |
 | Clean shutdown | Not tested | |
 | Battery reading | Not tested | |
 | Rumble at boot/gameplay | Fail at boot | Device rumbles during startup; gameplay rumble not tested. |
