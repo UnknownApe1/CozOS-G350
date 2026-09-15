@@ -57,8 +57,8 @@ building CozOS:
   shortcut mismatch fixed above.
 - The frontend does not show a status bar. This is tracked separately as a
   presentation/default-setting issue.
-- A brief power-button press suspends the unit and the next brief press resumes
-  it correctly. One of the five required consecutive suspend cycles has passed.
+- Five consecutive brief power-button suspend/resume cycles pass. Audio and
+  controls continue working after wake.
 - The rumble motor runs during startup, reproducing KNULLI's known G350 boot
   rumble issue. Gameplay rumble has not yet been tested.
 - Headphone insertion routes audio to the headphones and removal returns audio
@@ -68,10 +68,8 @@ building CozOS:
 
 1. Volume buttons repeat correctly when held.
 2. The CozOS FN + Volume fix adjusts brightness without also changing volume.
-3. Suspend/resume restores both audio and controls for four more consecutive
-   cycles.
-4. Gameplay rumble works without leaving the motor active during startup.
-5. Battery readings are plausible across a full charge/discharge cycle.
+3. Gameplay rumble works without leaving the motor active during startup.
+4. Battery readings are plausible across a full charge/discharge cycle.
 
 ## Deliberately unchanged
 
