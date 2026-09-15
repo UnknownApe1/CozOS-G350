@@ -53,6 +53,14 @@ jobs:
             free -h
           } | tee cozos-g350-build-metadata.txt
 
+      - name: Build KNULLI build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          make build-docker-image
+          docker image ls knulli/knulli-build
+          df -h /
+
       - name: Build G350-only image
         shell: bash
         run: |
