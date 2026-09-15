@@ -46,16 +46,34 @@ KNULLI's G350 device tree and EmulationStation profile both identify FN/Menu as
 The triggerhappy service automatically chooses this file because the KNULLI
 G350 device tree reports the model as `G350`.
 
+## Physical baseline — 2026-09-15
+
+The official KNULLI G350 image was tested on the target BATLEXP G350 before
+building CozOS:
+
+- Display, normal brightness, D-pad, face buttons, both analog sticks,
+  FN/Menu, volume buttons, and speaker audio pass.
+- FN + Volume does not change brightness in the frontend. This reproduces the
+  shortcut mismatch fixed above.
+- The frontend does not show a status bar. This is tracked separately as a
+  presentation/default-setting issue.
+- A brief power-button press appears to power the unit off. A cold-boot-logo
+  check is still required to distinguish a failed suspend from a suspend state
+  that blanks the display and LED.
+- The rumble motor runs during startup, reproducing KNULLI's known G350 boot
+  rumble issue. Gameplay rumble has not yet been tested.
+- Headphone hot-plug has not yet been tested.
+
 ## Must be verified on hardware
 
 1. Volume buttons repeat correctly when held.
-2. FN + Volume adjusts brightness and does not also change volume.
-3. FN continues to work as the emulator/frontend hotkey.
-4. Both analog sticks move in the correct directions and reach full range.
-5. Headphone insertion/removal routes audio correctly.
-6. Suspend/resume restores both audio and controls.
-7. Rumble does not remain active during startup.
-8. Battery readings are plausible across a full charge/discharge cycle.
+2. The CozOS FN + Volume fix adjusts brightness without also changing volume.
+3. Headphone insertion/removal routes audio correctly.
+4. A brief power press suspends and resumes without displaying the full KNULLI
+   boot sequence.
+5. Suspend/resume restores both audio and controls five times in a row.
+6. Gameplay rumble works without leaving the motor active during startup.
+7. Battery readings are plausible across a full charge/discharge cycle.
 
 ## Deliberately unchanged
 
@@ -64,4 +82,3 @@ G350 device tree reports the model as `G350`.
 - KNULLI's G350 device tree: its controller identity and axis configuration are
   newer and must be tested before replacing any values.
 - Emulator defaults: tune only after the hardware baseline passes.
-
