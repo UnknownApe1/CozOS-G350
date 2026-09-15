@@ -98,24 +98,42 @@ jobs:
           set -euo pipefail
           filename="rk3326_r13p0_gbm_with_vulkan_and_cl.zip"
           destination="dl/mali-g31-gbm/${filename}"
-          expected="ef1a18fabf270d0a6029917d6b0e6237d328613c2f8be4d420ea23e022288dd9"
+          source_7z="${RUNNER_TEMP}/rk3326-mali.7z"
+          extract_dir="${RUNNER_TEMP}/rk3326-mali"
+          mirror_commit="daf063fc503be035a3df68ad59209ee62c57cfc9"
+          mirror_blob="2988b004dd19e2c06e0259fdd3819bab9c6ca8f7"
+          hash_file="batocera/package/batocera/gpu/mali-g31-gbm/mali-g31-gbm.hash"
 
-          # Hardkernel's CDN currently rejects wget's default user-agent from
-          # GitHub runners. Fetch the same upstream file with normal HTTP
-          # headers, then require Batocera's pinned SHA-256 before use.
-          mkdir -p "$(dirname "${destination}")"
-          if ! printf '%s  %s\n' "${expected}" "${destination}" | sha256sum --check --status 2>/dev/null; then
-            rm -f "${destination}"
-            curl --location --fail-with-body \
-              --retry 5 --retry-all-errors --connect-timeout 20 \
-              --user-agent 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36' \
-              --referer 'https://wiki.odroid.com/odroid_go_advance/application_note/vulkan_on_rk3326' \
-              --output "${destination}" \
-              'https://dn.odroid.com/RK3326/ODROID-GO-Advance/rk3326_r13p0_gbm_with_vulkan_and_cl.zip'
-          fi
+          # Hardkernel's CDN rejects GitHub-hosted runners. Use ArkOS's
+          # established GitHub mirror pinned to an immutable commit and verify
+          # the exact Git blob before repacking the same two driver binaries.
+          curl --location --fail-with-body --retry 5 --retry-all-errors \
+            --output "${source_7z}" \
+            "https://raw.githubusercontent.com/christianhaitian/linux/${mirror_commit}/video_drivers/rk3326_r13p0_gbm_with_vulkan_and_cl.7z"
+          test "$(git hash-object "${source_7z}")" = "${mirror_blob}"
 
-          printf '%s  %s\n' "${expected}" "${destination}" | sha256sum --check
-          printf 'rk3326_mali_sha256=%s\n' "${expected}" | tee -a cozos-g350-build-metadata.txt
+          rm -rf "${extract_dir}"
+          mkdir -p "${extract_dir}" "$(dirname "${destination}")"
+          7z e -y -o"${extract_dir}" "${source_7z}" \
+            libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl \
+            libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl
+          test -s "${extract_dir}/libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl"
+          test -s "${extract_dir}/libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl"
+
+          rm -f "${destination}"
+          (
+            cd "${extract_dir}"
+            zip -9 "${GITHUB_WORKSPACE}/${destination}" \
+              libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl \
+              libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl
+          )
+          digest="$(sha256sum "${destination}" | awk '{print $1}')"
+          sed -i -E "s|^sha256[[:space:]]+[0-9a-f]+[[:space:]]+${filename}$|sha256 ${digest} ${filename}|" "${hash_file}"
+          grep -F " ${filename}" "${hash_file}"
+          sha256sum "${destination}" \
+            "${extract_dir}/libmali.so_rk3326_gbm_arm64_r13p0_with_vulkan_and_cl" \
+            "${extract_dir}/libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl" \
+            | tee -a cozos-g350-build-metadata.txt
 
       - name: Build G350-only image
         shell: bash
