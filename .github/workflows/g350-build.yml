@@ -1,0 +1,87 @@
+name: CozOS G350 cloud build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cozzios-g350
+    paths:
+      - .github/workflows/g350-build.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cozos-g350-build
+  cancel-in-progress: false
+
+jobs:
+  build-g350:
+    name: Build G350 firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Reclaim runner disk
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          docker system prune --all --force --volumes
+          df -h /
+
+      - name: Check out CozOS and submodules
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Record build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "commit=${GITHUB_SHA}"
+            echo "runner=${RUNNER_NAME}"
+            docker --version
+            df -h /
+            free -h
+          } | tee cozos-g350-build-metadata.txt
+
+      - name: Build G350-only image
+        shell: bash
+        run: |
+          set -euo pipefail
+          make rk3326-build \
+            BATCH_MODE=1 \
+            PARALLEL_BUILD=1 \
+            MAKE_JLEVEL="$(nproc)" \
+            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"'
+
+      - name: Verify output
+        id: firmware
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="$(find output/rk3326/images/knulli/images/g350 -maxdepth 1 -type f -name '*.img.gz' -print | sort | tail -n 1)"
+          test -n "${image}"
+          sha256sum "${image}" | tee "${image}.sha256"
+          mkdir -p cozos-g350-artifact
+          cp "${image}" "${image}.sha256" cozos-g350-build-metadata.txt cozos-g350-artifact/
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          ls -lh cozos-g350-artifact
+          df -h /
+
+      - name: Upload flashable firmware
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: CozOS-G350-${{ github.sha }}
+          path: cozos-g350-artifact/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
