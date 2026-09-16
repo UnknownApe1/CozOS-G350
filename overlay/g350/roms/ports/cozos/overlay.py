@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 ROOT = Path('/')
 STATE = Path('/userdata/system/cozos')
 
@@ -76,6 +76,57 @@ def mapping(text):
     result = '\n'.join(out) + '\n'
     return result
 
+def config_values(text, key):
+    pattern = re.compile(r'^\s*' + re.escape(key) + r'\s*=\s*(.*?)\s*$')
+    return [match.group(1) for line in text.splitlines()
+            if (match := pattern.match(line))]
+
+def set_config_value(text, key, value):
+    """Replace one KNULLI setting while preserving every unrelated line."""
+    pattern = re.compile(r'^\s*' + re.escape(key) + r'\s*=')
+    lines = text.splitlines()
+    out = []
+    replaced = False
+    for line in lines:
+        if pattern.match(line):
+            if not replaced:
+                out.append(f'{key}={value}')
+                replaced = True
+            continue
+        out.append(line)
+    if not replaced:
+        out.append(f'{key}={value}')
+    return '\n'.join(out) + '\n'
+
+def protect_idle_suspend():
+    """Avoid the G350's broken automatic hardware-suspend path."""
+    path = ROOT / 'userdata/system/knulli.conf'
+    key = 'system.batterysaver.extendedmode'
+    before = path.read_text(errors='replace') if path.exists() else ''
+    values = config_values(before, key)
+    info = {'path': str(path.relative_to(ROOT)), 'key': key,
+            'before_values': values, 'changed': False}
+    if values and values[-1] == 'suspend':
+        atomic(path, set_config_value(before, key, 'shutdown').encode())
+        info['changed'] = True
+    return info
+
+def restore_idle_suspend(info):
+    if not info or not info.get('changed'):
+        return
+    path = ROOT / info['path']
+    key = info['key']
+    current = path.read_text(errors='replace') if path.exists() else ''
+    values = config_values(current, key)
+    # Preserve a later user change instead of overwriting it during removal.
+    if not values or values[-1] != 'shutdown':
+        return
+    pattern = re.compile(r'^\s*' + re.escape(key) + r'\s*=')
+    out = [line for line in current.splitlines() if not pattern.match(line)]
+    for value in info.get('before_values', []):
+        out.append(f'{key}={value}')
+    atomic(path, ('\n'.join(out) + '\n').encode())
+
 def check_device():
     model = read(ROOT / 'sys/firmware/devicetree/base/model')
     if not re.search(r'g350|batlexp', model, re.I):
@@ -114,15 +165,17 @@ def install():
     else:
         original = current
     updated = mapping(current.decode('utf-8')).encode()
+    package_bin = Path(__file__).with_name('bin')
+    bin_payloads = {name: (package_bin / name).read_bytes()
+                    for name in ('power-button', 'power-button-release', 'fake-suspend')}
     # Save rollback data before changing the user configuration.
     STATE.mkdir(parents=True, exist_ok=True)
     atomic(STATE / 'original-multimedia.conf', original)
+    idle_safety = protect_idle_suspend()
     info = {'version': VERSION, 'had_override': prior['had_override'] if prior else target.exists(),
             'installed_sha256': digest(updated), 'original_sha256': digest(original),
-            'source': str(source)}
-    package_bin = Path(__file__).with_name('bin')
-    for name in ('power-button', 'power-button-release', 'fake-suspend'):
-        data = (package_bin / name).read_bytes()
+            'source': str(source), 'idle_safety': idle_safety}
+    for name, data in bin_payloads.items():
         destination = STATE / 'bin' / name
         atomic(destination, data)
         destination.chmod(0o755)
@@ -130,16 +183,18 @@ def install():
     atomic(manifest, json.dumps(info, indent=2).encode())
     ports = Path(__file__).parent.parent
     for old_name in (
-        'CozOS 0.1 - Install.sh',
-        'CozOS 0.1 - Status and Power Check.sh',
-        'CozOS 0.1 - Remove.sh',
+        'CozOS 0.1 - Install.sh', 'CozOS 0.1 - Status and Power Check.sh', 'CozOS 0.1 - Remove.sh',
+        'CozOS 0.2 - Install.sh', 'CozOS 0.2 - Status and Power Check.sh', 'CozOS 0.2 - Remove.sh',
     ):
         try:
             (ports / old_name).unlink()
         except FileNotFoundError:
             pass
     diagnose()
-    return 'CozOS ' + VERSION + ' installed. Reboot; FN+Volume adjusts brightness. Short power toggles screen-off sleep; hold power 2 seconds to shut down.'
+    idle_message = (' Automatic idle suspend was changed to graceful shutdown.'
+                    if idle_safety.get('changed') else '')
+    return ('CozOS ' + VERSION + ' installed. Reboot; FN+Volume adjusts brightness. '
+            'Short power toggles screen-off sleep; hold power 2 seconds to shut down.' + idle_message)
 
 def uninstall():
     manifest = STATE / 'installed.json'
@@ -156,6 +211,7 @@ def uninstall():
         atomic(target, original)
     else:
         target.unlink()
+    restore_idle_suspend(saved.get('idle_safety'))
     manifest.unlink()
     return 'CozOS hotkey overlay removed. Reboot to restore previous behavior. Reports and backup retained.'
 
@@ -177,6 +233,10 @@ def diagnose():
     conf = read(ROOT / 'userdata/system/batocera.conf') + '\n' + read(ROOT / 'userdata/system/knulli.conf')
     lines += ['\n[Power settings only]'] + [l for l in conf.splitlines()
         if re.match(r'system\.(suspend|batterysaver|idlewatcher|multimediakeys)', l)]
+    extended = config_values(read(ROOT / 'userdata/system/knulli.conf'),
+                             'system.batterysaver.extendedmode')
+    lines += ['Idle safety: ' + ('PASS (automatic hardware suspend disabled)'
+             if extended and extended[-1] != 'suspend' else 'WARNING (automatic hardware suspend remains enabled)')]
     for path in ['userdata/system/configs/multimedia_keys.conf', 'usr/bin/power-button',
                  'usr/bin/power-button-release', 'usr/bin/knulli-suspend']:
         lines += ['\n[' + path + ']', read(ROOT / path)]
