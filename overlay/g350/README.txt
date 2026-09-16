@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.4.0
+CozOS G350 SD-card overlay 0.4.1
 ===============================
 This is a testable configuration update for official KNULLI, not a firmware
 image. Do NOT flash this ZIP. No kernel, DTB, ROMs or saves are replaced.
@@ -10,7 +10,7 @@ INSTALL
    existing roms/ports folder. Copy the cozos subfolder too.
    Do not overwrite system/custom.sh or format any partition.
 4. Put the card back in the G350 and boot. Refresh/update the game list
-   if needed. Open Ports, then "CozOS 0.4 - Install".
+   if needed. Open Ports, then "CozOS 0.4.1 - Install".
 5. Reboot through KNULLI's normal menu.
 6. Hold FN first, then tap Volume + and Volume -. Test from the main menu.
 7. Briefly tap Power. The screen should turn off without rebooting. Briefly
@@ -19,7 +19,7 @@ INSTALL
 8. Automatic idle behavior remains dim after 5 minutes, but its second stage
    is changed from broken hardware suspend to KNULLI's graceful shutdown.
 9. On the following boot, the startup sequence displays the CozOS G350 Edition
-   v0.4.0 splash while EmulationStation loads.
+   v0.4.1 splash for five seconds while EmulationStation loads.
 
 WHERE TO COPY
 The required location on the device is /userdata/roms/ports.
@@ -31,7 +31,7 @@ any Windows prompt to format the card. Use KNULLI network sharing or a Linux
 computer/live USB to access the existing data partition.
 
 If Ports does not list these scripts, do not reflash. With SSH access run:
-  bash "/userdata/roms/ports/CozOS 0.4 - Install.sh"
+  bash "/userdata/roms/ports/CozOS 0.4.1 - Install.sh"
 This is an alternative; SSH is not required for the Ports method.
 
 WHAT CHANGES
@@ -50,7 +50,9 @@ supported emulators can auto-save normally.
 
 BOOT SPLASH
 CozOS installs one 640x480 startup image under /userdata/splash and enables
-KNULLI's supported custom splash option. Existing root-level PNG, JPG and MP4
+KNULLI's supported custom splash option in both knulli.conf and the early-boot
+knulli-boot.conf file. Version 0.4.1 writes the boot flag directly because some
+G350 shutdown paths do not copy it reliably. Existing root-level PNG, JPG and MP4
 splash files are checksum-backed-up under system/cozos and temporarily removed
 from rotation so CozOS is the only user splash. Removal restores them. KNULLI's
 very earliest built-in logo can still appear briefly before userdata is mounted;
@@ -80,7 +82,7 @@ saves, save states, scraped media and per-game settings are never touched.
 
 POWER FIX AND CHECK
 The supplied report showed that the official 2026-05-10 G350 build called
-pm-suspend on a short press, then booted again instead of resuming. CozOS 0.4
+pm-suspend on a short press, then booted again instead of resuming. CozOS 0.4.1
 uses a screen-off sleep instead: it mutes audio, pauses EmulationStation and
 active emulator processes, lowers the CPU governor, and turns off the display.
 It does not enter the broken kernel suspend state. A second short press restores
@@ -89,7 +91,7 @@ working hardware suspend, but avoids the observed reboot. Hold Power for two
 seconds for normal shutdown.
 
 The screen-off sleep and wake behavior has now been physically tested on the
-target G350. Launch "CozOS 0.4 - Status" whenever a diagnostic report is needed.
+target G350. Launch "CozOS 0.4.1 - Status" whenever a diagnostic report is needed.
 
 STATUS / RESULTS
 Launch the Status entry. A terminal dialog is used when available.
@@ -98,8 +100,9 @@ result is saved at system/cozos/last-action.txt, and the detailed report is at
 system/cozos/report.txt. There is no background daemon or permanent overlay.
 
 REMOVE
-Launch "CozOS 0.4 - Remove", then reboot. It restores the original hotkey
-configuration, each managed setting, and all earlier custom splash files.
+Launch "CozOS 0.4.1 - Remove", then reboot. It restores the original hotkey
+configuration, each managed setting, the original early-boot splash flag, and
+all earlier custom splash files.
 Settings changed by the user after installation are preserved rather than
 overwritten during removal. It refuses to overwrite an edited hotkey file.
 Reports and the original backup remain under system/cozos.

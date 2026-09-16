@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 
-VERSION = '0.4.0'
+VERSION = '0.4.1'
 ROOT = Path('/')
 STATE = Path('/userdata/system/cozos')
 
@@ -18,6 +18,7 @@ STATE = Path('/userdata/system/cozos')
 # which trade compatibility or frame pacing for visual effects.
 TUNING = {
     'splash.screen.enabled': '1',
+    'splash.screen.length': '5',
     'global.powermode': 'balanced',
     'global.batterymode': 'balanced',
     'global.video_threaded': 'true',
@@ -232,9 +233,54 @@ def restore_managed_settings(records):
             text = '\n'.join(lines) + '\n'
         atomic(path, text.encode())
 
+def write_boot_config(path, text):
+    """Safely update KNULLI's early-boot config, which is normally read-only."""
+    real_boot = ROOT == Path('/')
+    if real_boot:
+        subprocess.run(['mount', '-o', 'remount,rw', '/boot'], check=True)
+    try:
+        atomic(path, text.encode())
+    finally:
+        if real_boot:
+            subprocess.run(['mount', '-o', 'remount,ro', '/boot'], check=True)
+
+def apply_boot_splash(prior):
+    """Enable the splash where S28splash actually reads it at boot."""
+    path = ROOT / 'boot/knulli-boot.conf'
+    if not path.exists():
+        raise RuntimeError('/boot/knulli-boot.conf is missing; splash was not changed.')
+    key = 'splash.screen.enabled'
+    text = path.read_text(errors='replace')
+    values = config_values(text, key)
+    old = (prior or {}).get('boot_splash')
+    if old and values and values[-1] != old.get('installed_value'):
+        return old  # preserve a later user edit
+    record = {
+        'path': str(path.relative_to(ROOT)), 'key': key,
+        'before_values': old['before_values'] if old else values,
+        'installed_value': '1',
+        'changed': old.get('changed', False) if old else (not values or values[-1] != '1'),
+    }
+    if not values or values[-1] != '1':
+        write_boot_config(path, set_config_value(text, key, '1'))
+    return record
+
+def restore_boot_splash(record):
+    if not record or not record.get('changed'):
+        return
+    path = ROOT / record['path']
+    if not path.exists():
+        return
+    text = path.read_text(errors='replace')
+    values = config_values(text, record['key'])
+    if not values or values[-1] != record['installed_value']:
+        return  # a later user edit wins
+    pattern = re.compile(r'^\s*' + re.escape(record['key']) + r'\s*=')
+    lines = [line for line in text.splitlines() if not pattern.match(line)]
+    lines += [f"{record['key']}={value}" for value in record.get('before_values', [])]
+    write_boot_config(path, '\n'.join(lines) + '\n')
+
 def install_splash(prior):
-    if prior and prior.get('splash'):
-        return prior['splash']
     package = Path(__file__).with_name('assets') / 'cozos-splash-640x480.png'
     payload = package.read_bytes()
     if not payload.startswith(b'\x89PNG\r\n\x1a\n'):
@@ -243,22 +289,29 @@ def install_splash(prior):
                                   for i in (16, 20)) != (640, 480):
         raise RuntimeError('CozOS splash asset must be exactly 640x480.')
     splash_dir = ROOT / 'userdata/splash'
-    backup_dir = STATE / 'splash-backup-0.4'
+    previous = (prior or {}).get('splash')
+    backup_dir = ROOT / previous['backup_dir'] if previous else STATE / 'splash-backup-0.4'
     splash_dir.mkdir(parents=True, exist_ok=True)
     backup_dir.mkdir(parents=True, exist_ok=True)
     eligible = {'.png', '.jpg', '.jpeg', '.mp4'}
-    originals = []
-    for source in sorted(splash_dir.iterdir()):
-        if not source.is_file() or source.suffix.lower() not in eligible:
-            continue
-        data = source.read_bytes()
-        backup = backup_dir / source.name
-        atomic(backup, data)
-        originals.append({'name': source.name, 'sha256': digest(data),
-                          'mode': source.stat().st_mode & 0o777})
-    for item in originals:
-        (splash_dir / item['name']).unlink()
-    target = splash_dir / 'CozOS-G350-v0.4.0.png'
+    originals = previous.get('originals', []) if previous else []
+    if previous:
+        old_target = ROOT / previous['target']
+        if (old_target.exists() and
+                digest(old_target.read_bytes()) == previous.get('installed_sha256')):
+            old_target.unlink()
+    else:
+        for source in sorted(splash_dir.iterdir()):
+            if not source.is_file() or source.suffix.lower() not in eligible:
+                continue
+            data = source.read_bytes()
+            backup = backup_dir / source.name
+            atomic(backup, data)
+            originals.append({'name': source.name, 'sha256': digest(data),
+                              'mode': source.stat().st_mode & 0o777})
+        for item in originals:
+            (splash_dir / item['name']).unlink()
+    target = splash_dir / 'CozOS-G350-v0.4.1.png'
     atomic(target, payload)
     return {'target': str(target.relative_to(ROOT)),
             'installed_sha256': digest(payload), 'originals': originals,
@@ -326,11 +379,13 @@ def install():
     # Save rollback data before changing the user configuration.
     STATE.mkdir(parents=True, exist_ok=True)
     atomic(STATE / 'original-multimedia.conf', original)
+    boot_splash = apply_boot_splash(prior)
     managed_settings = apply_managed_settings(prior)
     splash = install_splash(prior)
     info = {'version': VERSION, 'had_override': prior['had_override'] if prior else target.exists(),
             'installed_sha256': digest(updated), 'original_sha256': digest(original),
-            'source': str(source), 'managed_settings': managed_settings, 'splash': splash}
+            'source': str(source), 'boot_splash': boot_splash,
+            'managed_settings': managed_settings, 'splash': splash}
     for name, data in bin_payloads.items():
         destination = STATE / 'bin' / name
         atomic(destination, data)
@@ -342,6 +397,7 @@ def install():
         'CozOS 0.1 - Install.sh', 'CozOS 0.1 - Status and Power Check.sh', 'CozOS 0.1 - Remove.sh',
         'CozOS 0.2 - Install.sh', 'CozOS 0.2 - Status and Power Check.sh', 'CozOS 0.2 - Remove.sh',
         'CozOS 0.3 - Install.sh', 'CozOS 0.3 - Status.sh', 'CozOS 0.3 - Remove.sh',
+        'CozOS 0.4 - Install.sh', 'CozOS 0.4 - Status.sh', 'CozOS 0.4 - Remove.sh',
     ):
         try:
             (ports / old_name).unlink()
@@ -369,6 +425,7 @@ def uninstall():
         target.unlink()
     restore_splash(saved.get('splash'))
     restore_managed_settings(saved.get('managed_settings'))
+    restore_boot_splash(saved.get('boot_splash'))
     manifest.unlink()
     return ('CozOS overlay, splash and managed tuning removed. Reboot to restore '
             'previous behavior. Reports and verified backups are retained.')
@@ -401,7 +458,9 @@ def diagnose():
         values = config_values(user_conf, key)
         lines.append(key + '=' + (values[-1] if values else '<missing>'))
     lines += ['\n[CozOS splash]',
-              'present=' + str((ROOT / 'userdata/splash/CozOS-G350-v0.4.0.png').exists())]
+              'present=' + str((ROOT / 'userdata/splash/CozOS-G350-v0.4.1.png').exists()),
+              'boot-enabled=' + str(config_values(read(ROOT / 'boot/knulli-boot.conf'),
+                                                   'splash.screen.enabled'))]
     for path in ['userdata/system/configs/multimedia_keys.conf', 'usr/bin/power-button',
                  'usr/bin/power-button-release', 'usr/bin/knulli-suspend']:
         lines += ['\n[' + path + ']', read(ROOT / path)]
