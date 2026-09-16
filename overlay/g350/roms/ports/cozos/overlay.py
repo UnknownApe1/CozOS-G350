@@ -9,9 +9,72 @@ import re
 import subprocess
 import sys
 
-VERSION = '0.3.0'
+VERSION = '0.4.0'
 ROOT = Path('/')
 STATE = Path('/userdata/system/cozos')
+
+# Conservative G350/RK3326 defaults. These use KNULLI's own public option
+# names, keep native resolutions for demanding systems, and avoid enhancements
+# which trade compatibility or frame pacing for visual effects.
+TUNING = {
+    'splash.screen.enabled': '1',
+    'global.powermode': 'balanced',
+    'global.batterymode': 'balanced',
+    'global.video_threaded': 'true',
+    'global.audio_latency': '64',
+    'global.ratio': 'core',
+    'global.smooth': '0',
+    'global.vsync': '1',
+    'global.gpusync': '0',
+    'psx.emulator': 'libretro',
+    'psx.core': 'pcsx_rearmed',
+    'psx.powermode': 'balanced',
+    'psx.ratio': 'core',
+    'psx.integerscale': '1',
+    'n64.emulator': 'mupen64plus',
+    'n64.core': 'glide64mk2',
+    'n64.powermode': 'highperformance',
+    'n64.mupen64plus_ratio': '4/3',
+    'n64.mupen64plus_frameskip': '0',
+    'n64.mupen64plus_AudioSync': 'False',
+    'n64.mupen64plus_AudioBuffer': 'Medium',
+    'dreamcast.emulator': 'libretro',
+    'dreamcast.core': 'flycastvl',
+    'dreamcast.powermode': 'highperformance',
+    'dreamcast.reicast_internal_resolution': '640x480',
+    'dreamcast.reicast_synchronous_rendering': 'disabled',
+    'atomiswave.emulator': 'libretro',
+    'atomiswave.core': 'flycastvl',
+    'atomiswave.powermode': 'highperformance',
+    'atomiswave.reicast_internal_resolution': '640x480',
+    'naomi.emulator': 'libretro',
+    'naomi.core': 'flycastvl',
+    'naomi.powermode': 'highperformance',
+    'naomi.reicast_internal_resolution': '640x480',
+    'psp.emulator': 'ppsspp',
+    'psp.core': 'ppsspp',
+    'psp.powermode': 'highperformance',
+    'psp.internal_resolution': '1',
+    'psp.frameskip': '2',
+    'psp.autoframeskip': '1',
+    'psp.texture_scaling_level': '1',
+    'nds.emulator': 'drastic',
+    'nds.core': 'drastic',
+    'nds.powermode': 'highperformance',
+    'nds.drastic_hires': '0',
+    'nds.drastic_frameskip_type': '0',
+    'saturn.emulator': 'yabasanshiro',
+    'saturn.core': 'yabasanshiro',
+    'saturn.powermode': 'highperformance',
+    'saturn.yaba_res': '0',
+    'system.batterysaver.extendedmode': 'shutdown',
+}
+
+for _system in ('nes', 'snes', 'megadrive', 'mastersystem', 'gamegear',
+                'gb', 'gbc', 'gba', 'pcengine', 'pcenginecd', 'neogeo'):
+    TUNING[_system + '.ratio'] = 'core'
+    TUNING[_system + '.smooth'] = '0'
+    TUNING[_system + '.integerscale'] = '1'
 
 def read(path):
     try:
@@ -98,34 +161,126 @@ def set_config_value(text, key, value):
         out.append(f'{key}={value}')
     return '\n'.join(out) + '\n'
 
-def protect_idle_suspend():
-    """Avoid the G350's broken automatic hardware-suspend path."""
+def apply_managed_settings(prior):
+    """Apply tuning while retaining the original value of every key."""
     path = ROOT / 'userdata/system/knulli.conf'
-    key = 'system.batterysaver.extendedmode'
-    before = path.read_text(errors='replace') if path.exists() else ''
-    values = config_values(before, key)
-    info = {'path': str(path.relative_to(ROOT)), 'key': key,
-            'before_values': values, 'changed': False}
-    if values and values[-1] == 'suspend':
-        atomic(path, set_config_value(before, key, 'shutdown').encode())
-        info['changed'] = True
-    return info
+    text = path.read_text(errors='replace') if path.exists() else ''
+    old_records = {(item['path'], item['key']): item
+                   for item in (prior or {}).get('managed_settings', [])}
+    # Convert the 0.3 idle rollback record so an upgrade still restores the
+    # value that existed before CozOS first changed it.
+    legacy = (prior or {}).get('idle_safety')
+    if legacy and legacy.get('changed'):
+        old_records[(legacy['path'], legacy['key'])] = {
+            'path': legacy['path'], 'key': legacy['key'],
+            'before_values': legacy.get('before_values', []),
+            'installed_value': 'shutdown', 'changed': True,
+        }
+    records = []
+    relative = str(path.relative_to(ROOT))
+    for key, value in TUNING.items():
+        old = old_records.get((relative, key))
+        values = config_values(text, key)
+        # Existing explicit emulator/scaling/audio choices are user choices,
+        # not defaults. Leave them live. The two safety/branding switches are
+        # intentionally managed when needed.
+        force = key == 'splash.screen.enabled' or (
+            key == 'system.batterysaver.extendedmode' and values and values[-1] == 'suspend')
+        if old and not old.get('changed'):
+            # This key was already an explicit user choice when CozOS first
+            # saw it. A repeat install must never turn that choice into a
+            # CozOS-managed default.
+            records.append(old)
+            continue
+        if old and values and values[-1] != old.get('installed_value'):
+            records.append(old)  # a later user edit wins, including during upgrade
+            continue
+        if not old and values and values[-1] != value and not force:
+            records.append({'path': relative, 'key': key,
+                            'before_values': values,
+                            'installed_value': values[-1], 'changed': False})
+            continue
+        record = {
+            'path': relative,
+            'key': key,
+            'before_values': old['before_values'] if old else values,
+            'installed_value': value,
+            'changed': old.get('changed', False) if old else (not values or values[-1] != value),
+        }
+        text = set_config_value(text, key, value)
+        records.append(record)
+    atomic(path, text.encode())
+    return records
 
-def restore_idle_suspend(info):
-    if not info or not info.get('changed'):
+def restore_managed_settings(records):
+    """Restore managed keys, while preserving any later user edits."""
+    by_path = {}
+    for item in records or []:
+        by_path.setdefault(item['path'], []).append(item)
+    for relative, items in by_path.items():
+        path = ROOT / relative
+        text = path.read_text(errors='replace') if path.exists() else ''
+        for item in items:
+            if not item.get('changed'):
+                continue
+            values = config_values(text, item['key'])
+            if not values or values[-1] != item['installed_value']:
+                continue
+            pattern = re.compile(r'^\s*' + re.escape(item['key']) + r'\s*=')
+            lines = [line for line in text.splitlines() if not pattern.match(line)]
+            lines += [f"{item['key']}={value}" for value in item.get('before_values', [])]
+            text = '\n'.join(lines) + '\n'
+        atomic(path, text.encode())
+
+def install_splash(prior):
+    if prior and prior.get('splash'):
+        return prior['splash']
+    package = Path(__file__).with_name('assets') / 'cozos-splash-640x480.png'
+    payload = package.read_bytes()
+    if not payload.startswith(b'\x89PNG\r\n\x1a\n'):
+        raise RuntimeError('CozOS splash asset is not a valid PNG.')
+    if len(payload) < 24 or tuple(int.from_bytes(payload[i:i + 4], 'big')
+                                  for i in (16, 20)) != (640, 480):
+        raise RuntimeError('CozOS splash asset must be exactly 640x480.')
+    splash_dir = ROOT / 'userdata/splash'
+    backup_dir = STATE / 'splash-backup-0.4'
+    splash_dir.mkdir(parents=True, exist_ok=True)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    eligible = {'.png', '.jpg', '.jpeg', '.mp4'}
+    originals = []
+    for source in sorted(splash_dir.iterdir()):
+        if not source.is_file() or source.suffix.lower() not in eligible:
+            continue
+        data = source.read_bytes()
+        backup = backup_dir / source.name
+        atomic(backup, data)
+        originals.append({'name': source.name, 'sha256': digest(data),
+                          'mode': source.stat().st_mode & 0o777})
+    for item in originals:
+        (splash_dir / item['name']).unlink()
+    target = splash_dir / 'CozOS-G350-v0.4.0.png'
+    atomic(target, payload)
+    return {'target': str(target.relative_to(ROOT)),
+            'installed_sha256': digest(payload), 'originals': originals,
+            'backup_dir': str(backup_dir.relative_to(ROOT))}
+
+def restore_splash(info):
+    if not info:
         return
-    path = ROOT / info['path']
-    key = info['key']
-    current = path.read_text(errors='replace') if path.exists() else ''
-    values = config_values(current, key)
-    # Preserve a later user change instead of overwriting it during removal.
-    if not values or values[-1] != 'shutdown':
-        return
-    pattern = re.compile(r'^\s*' + re.escape(key) + r'\s*=')
-    out = [line for line in current.splitlines() if not pattern.match(line)]
-    for value in info.get('before_values', []):
-        out.append(f'{key}={value}')
-    atomic(path, ('\n'.join(out) + '\n').encode())
+    target = ROOT / info['target']
+    if target.exists() and digest(target.read_bytes()) == info['installed_sha256']:
+        target.unlink()
+    splash_dir = target.parent
+    backup_dir = ROOT / info['backup_dir']
+    for item in info.get('originals', []):
+        source = backup_dir / item['name']
+        destination = splash_dir / item['name']
+        if source.exists() and not destination.exists():
+            data = source.read_bytes()
+            if digest(data) != item['sha256']:
+                raise RuntimeError('Splash backup checksum mismatch: ' + item['name'])
+            atomic(destination, data)
+            destination.chmod(item.get('mode', 0o644))
 
 def check_device():
     model = read(ROOT / 'sys/firmware/devicetree/base/model')
@@ -171,10 +326,11 @@ def install():
     # Save rollback data before changing the user configuration.
     STATE.mkdir(parents=True, exist_ok=True)
     atomic(STATE / 'original-multimedia.conf', original)
-    idle_safety = protect_idle_suspend()
+    managed_settings = apply_managed_settings(prior)
+    splash = install_splash(prior)
     info = {'version': VERSION, 'had_override': prior['had_override'] if prior else target.exists(),
             'installed_sha256': digest(updated), 'original_sha256': digest(original),
-            'source': str(source), 'idle_safety': idle_safety}
+            'source': str(source), 'managed_settings': managed_settings, 'splash': splash}
     for name, data in bin_payloads.items():
         destination = STATE / 'bin' / name
         atomic(destination, data)
@@ -185,16 +341,16 @@ def install():
     for old_name in (
         'CozOS 0.1 - Install.sh', 'CozOS 0.1 - Status and Power Check.sh', 'CozOS 0.1 - Remove.sh',
         'CozOS 0.2 - Install.sh', 'CozOS 0.2 - Status and Power Check.sh', 'CozOS 0.2 - Remove.sh',
+        'CozOS 0.3 - Install.sh', 'CozOS 0.3 - Status.sh', 'CozOS 0.3 - Remove.sh',
     ):
         try:
             (ports / old_name).unlink()
         except FileNotFoundError:
             pass
     diagnose()
-    idle_message = (' Automatic idle suspend was changed to graceful shutdown.'
-                    if idle_safety.get('changed') else '')
     return ('CozOS ' + VERSION + ' installed. Reboot; FN+Volume adjusts brightness. '
-            'Short power toggles screen-off sleep; hold power 2 seconds to shut down.' + idle_message)
+            'CozOS splash and G350 performance profiles are active. Short power toggles '
+            'screen-off sleep; hold power 2 seconds to shut down.')
 
 def uninstall():
     manifest = STATE / 'installed.json'
@@ -211,9 +367,11 @@ def uninstall():
         atomic(target, original)
     else:
         target.unlink()
-    restore_idle_suspend(saved.get('idle_safety'))
+    restore_splash(saved.get('splash'))
+    restore_managed_settings(saved.get('managed_settings'))
     manifest.unlink()
-    return 'CozOS hotkey overlay removed. Reboot to restore previous behavior. Reports and backup retained.'
+    return ('CozOS overlay, splash and managed tuning removed. Reboot to restore '
+            'previous behavior. Reports and verified backups are retained.')
 
 def diagnose():
     STATE.mkdir(parents=True, exist_ok=True)
@@ -237,6 +395,13 @@ def diagnose():
                              'system.batterysaver.extendedmode')
     lines += ['Idle safety: ' + ('PASS (automatic hardware suspend disabled)'
              if extended and extended[-1] != 'suspend' else 'WARNING (automatic hardware suspend remains enabled)')]
+    lines += ['\n[CozOS managed tuning]']
+    user_conf = read(ROOT / 'userdata/system/knulli.conf')
+    for key in TUNING:
+        values = config_values(user_conf, key)
+        lines.append(key + '=' + (values[-1] if values else '<missing>'))
+    lines += ['\n[CozOS splash]',
+              'present=' + str((ROOT / 'userdata/splash/CozOS-G350-v0.4.0.png').exists())]
     for path in ['userdata/system/configs/multimedia_keys.conf', 'usr/bin/power-button',
                  'usr/bin/power-button-release', 'usr/bin/knulli-suspend']:
         lines += ['\n[' + path + ']', read(ROOT / path)]

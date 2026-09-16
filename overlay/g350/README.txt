@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.3.0
+CozOS G350 SD-card overlay 0.4.0
 ===============================
 This is a testable configuration update for official KNULLI, not a firmware
 image. Do NOT flash this ZIP. No kernel, DTB, ROMs or saves are replaced.
@@ -10,7 +10,7 @@ INSTALL
    existing roms/ports folder. Copy the cozos subfolder too.
    Do not overwrite system/custom.sh or format any partition.
 4. Put the card back in the G350 and boot. Refresh/update the game list
-   if needed. Open Ports, then "CozOS 0.3 - Install".
+   if needed. Open Ports, then "CozOS 0.4 - Install".
 5. Reboot through KNULLI's normal menu.
 6. Hold FN first, then tap Volume + and Volume -. Test from the main menu.
 7. Briefly tap Power. The screen should turn off without rebooting. Briefly
@@ -18,6 +18,8 @@ INSTALL
    Check ordinary volume controls and your usual game hotkeys too.
 8. Automatic idle behavior remains dim after 5 minutes, but its second stage
    is changed from broken hardware suspend to KNULLI's graceful shutdown.
+9. On the following boot, the startup sequence displays the CozOS G350 Edition
+   v0.4.0 splash while EmulationStation loads.
 
 WHERE TO COPY
 The required location on the device is /userdata/roms/ports.
@@ -29,7 +31,7 @@ any Windows prompt to format the card. Use KNULLI network sharing or a Linux
 computer/live USB to access the existing data partition.
 
 If Ports does not list these scripts, do not reflash. With SSH access run:
-  bash "/userdata/roms/ports/CozOS 0.3 - Install.sh"
+  bash "/userdata/roms/ports/CozOS 0.4 - Install.sh"
 This is an alternative; SSH is not required for the Ports method.
 
 WHAT CHANGES
@@ -45,12 +47,40 @@ The installer also changes only system.batterysaver.extendedmode from suspend
 to shutdown when that unsafe value is present. It preserves the existing idle
 timers and all unrelated settings. KNULLI performs a graceful shutdown so
 supported emulators can auto-save normally.
-The visible version label is in the Ports entries and the status report;
-it does not rename official KNULLI's main menu or claim a custom firmware.
+
+BOOT SPLASH
+CozOS installs one 640x480 startup image under /userdata/splash and enables
+KNULLI's supported custom splash option. Existing root-level PNG, JPG and MP4
+splash files are checksum-backed-up under system/cozos and temporarily removed
+from rotation so CozOS is the only user splash. Removal restores them. KNULLI's
+very earliest built-in logo can still appear briefly before userdata is mounted;
+replacing that requires rebuilding the read-only firmware image.
+
+EMULATION AND PERFORMANCE DEFAULTS
+Existing active user choices are left unchanged. For settings which have not
+already been customized, CozOS installs these G350 defaults:
+- PS1: PCSX-ReARMed, balanced CPU, core aspect, integer scaling.
+- N64: standalone Mupen64Plus/Glide64MK2, high-performance CPU, 4:3,
+  no frameskip, medium audio buffer.
+- Dreamcast/Atomiswave/Naomi: FlycastVL at native 640x480 and
+  high-performance CPU.
+- PSP: standalone PPSSPP at native 1x resolution, auto frameskip up to 2,
+  no texture upscaling, high-performance CPU.
+- Nintendo DS: DraStic, standard resolution, no frameskip,
+  high-performance CPU.
+- Saturn: Yabasanshiro at native resolution and high-performance CPU.
+- NES/SNES/Genesis/Master System/Game Gear/GB/GBC/GBA/PC Engine/Neo Geo:
+  core-provided aspect, crisp filtering, integer scaling.
+- Global: balanced CPU outside demanding systems, threaded video, 64 ms audio
+  latency, core aspect, V-Sync on, hard GPU sync off.
+
+High-performance mode uses KNULLI's normal per-system hook, so the CPU power
+profile returns to balanced after leaving the demanding game. ROMs, BIOS,
+saves, save states, scraped media and per-game settings are never touched.
 
 POWER FIX AND CHECK
 The supplied report showed that the official 2026-05-10 G350 build called
-pm-suspend on a short press, then booted again instead of resuming. CozOS 0.3
+pm-suspend on a short press, then booted again instead of resuming. CozOS 0.4
 uses a screen-off sleep instead: it mutes audio, pauses EmulationStation and
 active emulator processes, lowers the CPU governor, and turns off the display.
 It does not enter the broken kernel suspend state. A second short press restores
@@ -59,7 +89,7 @@ working hardware suspend, but avoids the observed reboot. Hold Power for two
 seconds for normal shutdown.
 
 The screen-off sleep and wake behavior has now been physically tested on the
-target G350. Launch "CozOS 0.3 - Status" whenever a diagnostic report is needed.
+target G350. Launch "CozOS 0.4 - Status" whenever a diagnostic report is needed.
 
 STATUS / RESULTS
 Launch the Status entry. A terminal dialog is used when available.
@@ -68,9 +98,10 @@ result is saved at system/cozos/last-action.txt, and the detailed report is at
 system/cozos/report.txt. There is no background daemon or permanent overlay.
 
 REMOVE
-Launch "CozOS 0.3 - Remove", then reboot. It restores the original user config
-if there was one, or removes only the override it created. It refuses to
-overwrite a config edited by someone else after installation.
+Launch "CozOS 0.4 - Remove", then reboot. It restores the original hotkey
+configuration, each managed setting, and all earlier custom splash files.
+Settings changed by the user after installation are preserved rather than
+overwritten during removal. It refuses to overwrite an edited hotkey file.
 Reports and the original backup remain under system/cozos.
 After removal you may delete the three CozOS .sh launchers and roms/ports/cozos.
 
@@ -80,18 +111,19 @@ possible and access the data partition. Read system/cozos/installed.json:
 - had_override=false: remove only system/configs/multimedia_keys.conf.
 - had_override=true: copy system/cozos/original-multimedia.conf back to
   system/configs/multimedia_keys.conf.
-If 0.3 changed the idle setting, removal restores its previous value. For
+If CozOS changed the idle setting, removal restores its previous value. For
 manual recovery, Power Management can safely be set to Extended Mode: Shutdown
 or None; do not select Suspend on this G350 build.
 Keep a copy of any subsequently edited config before manual recovery.
 
 VALIDATION AND LIMITS
 Tested locally: config transformation; preservation of unrelated and FN+Power
-bindings; install/remove with and without existing overrides; upgrade from 0.1;
+bindings; install/remove with and without existing overrides; upgrades from
+0.1/0.2/0.3; preservation and restoration of custom splash/config settings;
 refusal on unknown hardware/unsupported hooks; repeat installation; protection
 of later edits; power-button short/long control flow; shell syntax.
 Brightness and screen-off sleep/wake were physically tested successfully on
-the target G350. The 0.3 idle-safety change uses KNULLI's documented graceful
+the target G350. The idle-safety change uses KNULLI's documented graceful
 shutdown mode and the exact installed configuration. Boot rumble begins before
 the writable user overlay starts, so this package cannot safely fix it. A
 graphical brightness status bar is not included because KNULLI's installed
