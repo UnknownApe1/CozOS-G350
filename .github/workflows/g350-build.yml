@@ -138,12 +138,41 @@ jobs:
       - name: Build G350-only image
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          compile_log="cozos-g350-compile.log"
           make rk3326-build \
             BATCH_MODE=1 \
             PARALLEL_BUILD=1 \
             MAKE_JLEVEL="$(nproc)" \
-            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"'
+            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
+            2>&1 | tee "${compile_log}"
+          build_status=${PIPESTATUS[0]}
+
+          if [ "${build_status}" -ne 0 ]; then
+            tail -n 300 "${compile_log}" > cozos-g350-error-tail.txt
+            gzip -9 -c "${compile_log}" > cozos-g350-compile.log.gz
+            {
+              echo "## G350 build failure"
+              echo
+              echo '~~~text'
+              tail -n 120 cozos-g350-error-tail.txt
+              echo '~~~'
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit "${build_status}"
+          fi
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: CozOS-G350-build-diagnostics-${{ github.sha }}
+          path: |
+            cozos-g350-error-tail.txt
+            cozos-g350-compile.log.gz
+            cozos-g350-build-metadata.txt
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 7
 
       - name: Verify output
         id: firmware
