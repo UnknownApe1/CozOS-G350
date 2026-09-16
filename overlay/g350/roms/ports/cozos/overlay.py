@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 ROOT = Path('/')
 STATE = Path('/userdata/system/cozos')
 
@@ -53,6 +53,27 @@ def mapping(text):
                 raise RuntimeError('Existing FN mapping conflicts with the stock handler; no changes made.')
             if not matches:
                 result += f'{key}+BTN_TRIGGER_HAPPY5 {state} {command}\n'
+    # The installed 2026-05-10 G350 build enters pm-suspend on a short press,
+    # then boots again instead of resuming. Route only the plain power events
+    # to the persistent CozOS handler; retain FN+power and every other binding.
+    replacements = {
+        '1': '/userdata/system/cozos/bin/power-button',
+        '0': '/userdata/system/cozos/bin/power-button-release',
+    }
+    out = []
+    seen = set()
+    for line in result.splitlines():
+        match = re.match(r'^KEY_POWER\s+([01])\s+(.+)$', line)
+        if match:
+            state = match.group(1)
+            out.append(f'KEY_POWER {state} {replacements[state]}')
+            seen.add(state)
+        else:
+            out.append(line)
+    for state in ('1', '0'):
+        if state not in seen:
+            out.append(f'KEY_POWER {state} {replacements[state]}')
+    result = '\n'.join(out) + '\n'
     return result
 
 def check_device():
@@ -73,27 +94,42 @@ def install():
     model = check_device()
     target = ROOT / 'userdata/system/configs/multimedia_keys.conf'
     manifest = STATE / 'installed.json'
+    prior = None
     if manifest.exists():
         saved = json.loads(manifest.read_text())
-        if target.exists() and digest(target.read_bytes()) == saved['installed_sha256']:
+        if not target.exists() or digest(target.read_bytes()) != saved['installed_sha256']:
+            raise RuntimeError('Hotkey config changed after installation. Remove/review it before upgrading.')
+        if saved.get('version') == VERSION:
             return 'CozOS ' + VERSION + ' is already installed. Reboot if you have not yet.'
-        raise RuntimeError('Hotkey config changed after installation. Remove/review it before reinstalling.')
+        prior = saved
     stock = ROOT / ('etc/triggerhappy/triggers.d/multimedia_keys_' + model + '.conf')
     if not stock.exists():
         stock = ROOT / 'etc/triggerhappy/triggers.d/multimedia_keys.conf'
     source = target if target.exists() else stock
-    original = source.read_bytes()
-    updated = mapping(original.decode('utf-8')).encode()
+    current = source.read_bytes()
+    if prior:
+        original = (STATE / 'original-multimedia.conf').read_bytes()
+        if digest(original) != prior['original_sha256']:
+            raise RuntimeError('Original backup checksum mismatch; no changes made.')
+    else:
+        original = current
+    updated = mapping(current.decode('utf-8')).encode()
     # Save rollback data before changing the user configuration.
     STATE.mkdir(parents=True, exist_ok=True)
     atomic(STATE / 'original-multimedia.conf', original)
-    info = {'version': VERSION, 'had_override': target.exists(),
+    info = {'version': VERSION, 'had_override': prior['had_override'] if prior else target.exists(),
             'installed_sha256': digest(updated), 'original_sha256': digest(original),
             'source': str(source)}
-    atomic(manifest, json.dumps(info, indent=2).encode())
+    package_bin = Path(__file__).with_name('bin')
+    for name in ('power-button', 'power-button-release', 'fake-suspend'):
+        data = (package_bin / name).read_bytes()
+        destination = STATE / 'bin' / name
+        atomic(destination, data)
+        destination.chmod(0o755)
     atomic(target, updated)
+    atomic(manifest, json.dumps(info, indent=2).encode())
     diagnose()
-    return 'CozOS ' + VERSION + ' installed. Reboot, then hold FN and tap Volume + or -. Power behavior is unchanged.'
+    return 'CozOS ' + VERSION + ' installed. Reboot; FN+Volume adjusts brightness. Short power toggles screen-off sleep; hold power 2 seconds to shut down.'
 
 def uninstall():
     manifest = STATE / 'installed.json'
