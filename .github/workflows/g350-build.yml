@@ -149,19 +149,34 @@ jobs:
           test "${#digest}" -eq 64
           printf '%s  %s\n' "${digest}" "dl/libtool/${filename}" | sha256sum --check -
 
-      - name: Build G350-only image
+      - name: Compile controller first, then build G350 image
         shell: bash
         run: |
           set +e
           set -uo pipefail
           compile_log="cozos-g350-compile.log"
-          make rk3326-build \
-            BATCH_MODE=1 \
-            PARALLEL_BUILD=1 \
-            MAKE_JLEVEL="$(nproc)" \
-            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
-            2>&1 | tee "${compile_log}"
-          build_status=${PIPESTATUS[0]}
+          # Buildroot builds the toolchain and kernel prerequisites first.
+          # Reuse those outputs for the full image only if the driver passes.
+          build_status=0
+          for target in rocknix-joypad all; do
+            echo "::group::Build target: ${target}"
+            make rk3326-build \
+              BATCH_MODE=1 \
+              PARALLEL_BUILD=1 \
+              MAKE_JLEVEL="$(nproc)" \
+              EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
+              CMD="${target}" \
+              2>&1 | tee -a "${compile_log}"
+            pipeline_status=("${PIPESTATUS[@]}")
+            build_status=${pipeline_status[0]}
+            if [ "${build_status}" -eq 0 ]; then
+              build_status=${pipeline_status[1]}
+            fi
+            echo "::endgroup::"
+            if [ "${build_status}" -ne 0 ]; then
+              break
+            fi
+          done
 
           if [ "${build_status}" -ne 0 ]; then
             tail -n 300 "${compile_log}" > cozos-g350-error-tail.txt
