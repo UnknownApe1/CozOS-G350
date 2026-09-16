@@ -1,0 +1,80 @@
+#!/bin/sh
+
+set -u
+STATE=/var/run/cozos-fake-suspend
+ACTIVE="${STATE}.active"
+BRIGHTNESS="${STATE}.brightness"
+MUTE="${STATE}.mute"
+PIDS="${STATE}.pids"
+CPU="${STATE}.cpu"
+
+sleep_now() {
+    [ -f "$ACTIVE" ] && exit 0
+    : > "$ACTIVE"
+
+    if [ -f /var/run/knulli-brightness ]; then
+        cp /var/run/knulli-brightness "$BRIGHTNESS"
+    else
+        knulli-brightness > "$BRIGHTNESS" 2>/dev/null || echo 50 > "$BRIGHTNESS"
+    fi
+
+    if command -v pactl >/dev/null 2>&1; then
+        pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | awk '{print $2}' > "$MUTE"
+        pactl set-sink-mute @DEFAULT_SINK@ true >/dev/null 2>&1
+    fi
+
+    knulli-brightness dispoff >/dev/null 2>&1 || knulli-brightness 1 >/dev/null 2>&1
+
+    : > "$PIDS"
+    ps -eo pid,ni 2>/dev/null | awk '$2 == -4 {print $1}' | while read -r pid; do
+        [ -n "$pid" ] && kill -STOP "$pid" 2>/dev/null && echo "$pid" >> "$PIDS"
+    done
+    [ -x /etc/init.d/S31emulationstation ] && /etc/init.d/S31emulationstation suspend >/dev/null 2>&1
+
+    : > "$CPU"
+    for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+        [ -d "$policy" ] || continue
+        governor="$policy/scaling_governor"
+        maximum="$policy/scaling_max_freq"
+        minimum="$policy/scaling_min_freq"
+        [ -r "$governor" ] && printf 'G %s %s\n' "$governor" "$(cat "$governor")" >> "$CPU"
+        [ -r "$maximum" ] && printf 'M %s %s\n' "$maximum" "$(cat "$maximum")" >> "$CPU"
+        [ -w "$governor" ] && echo powersave > "$governor" 2>/dev/null
+        [ -r "$minimum" ] && [ -w "$maximum" ] && cat "$minimum" > "$maximum" 2>/dev/null
+    done
+}
+
+wake_now() {
+    [ -f "$ACTIVE" ] || exit 0
+
+    if [ -f "$CPU" ]; then
+        while read -r type file value; do
+            [ -w "$file" ] || continue
+            echo "$value" > "$file" 2>/dev/null
+        done < "$CPU"
+    fi
+
+    [ -x /etc/init.d/S31emulationstation ] && /etc/init.d/S31emulationstation resume >/dev/null 2>&1
+    if [ -f "$PIDS" ]; then
+        while read -r pid; do
+            [ -n "$pid" ] && kill -CONT "$pid" 2>/dev/null
+        done < "$PIDS"
+    fi
+
+    knulli-brightness dispon >/dev/null 2>&1 || {
+        value="$(cat "$BRIGHTNESS" 2>/dev/null)"
+        [ -n "$value" ] && knulli-brightness "$value" >/dev/null 2>&1
+    }
+    if command -v pactl >/dev/null 2>&1 && [ "$(cat "$MUTE" 2>/dev/null)" != yes ]; then
+        pactl set-sink-mute @DEFAULT_SINK@ false >/dev/null 2>&1
+    fi
+    rm -f "$ACTIVE" "$BRIGHTNESS" "$MUTE" "$PIDS" "$CPU"
+}
+
+case "${1:-}" in
+    sleep) sleep_now ;;
+    wake) wake_now ;;
+    *) echo "Usage: $0 sleep|wake" >&2; exit 1 ;;
+esac
+
+exit 0
