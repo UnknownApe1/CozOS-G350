@@ -128,6 +128,16 @@ def install():
         destination.chmod(0o755)
     atomic(target, updated)
     atomic(manifest, json.dumps(info, indent=2).encode())
+    ports = Path(__file__).parent.parent
+    for old_name in (
+        'CozOS 0.1 - Install.sh',
+        'CozOS 0.1 - Status and Power Check.sh',
+        'CozOS 0.1 - Remove.sh',
+    ):
+        try:
+            (ports / old_name).unlink()
+        except FileNotFoundError:
+            pass
     diagnose()
     return 'CozOS ' + VERSION + ' installed. Reboot; FN+Volume adjusts brightness. Short power toggles screen-off sleep; hold power 2 seconds to shut down.'
 
