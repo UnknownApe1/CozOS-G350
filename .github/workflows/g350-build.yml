@@ -135,9 +135,24 @@ jobs:
             "${extract_dir}/libmali.so_rk3326_gbm_arm32_r13p0_with_vulkan_and_cl" \
             | tee -a cozos-g350-build-metadata.txt
 
+      - name: Prefetch verified Libtool source
+        shell: bash
+        run: |
+          set -euo pipefail
+          filename="libtool-2.4.7.tar.xz"
+          mkdir -p dl/libtool
+          curl --location --fail --retry 5 --retry-all-errors \
+            --connect-timeout 30 --max-time 300 \
+            --output "dl/libtool/${filename}" \
+            "https://ftp.gnu.org/gnu/libtool/${filename}"
+          digest="$(awk -v name="${filename}" '$1 == "sha256" && $3 == name {print $2}' buildroot/package/libtool/libtool.hash)"
+          test "${#digest}" -eq 64
+          printf '%s  %s\n' "${digest}" "dl/libtool/${filename}" | sha256sum --check -
+
       - name: Build G350-only image
         shell: bash
         run: |
+          set +e
           set -uo pipefail
           compile_log="cozos-g350-compile.log"
           make rk3326-build \
