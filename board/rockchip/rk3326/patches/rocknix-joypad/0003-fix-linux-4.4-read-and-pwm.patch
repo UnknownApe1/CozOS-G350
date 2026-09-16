@@ -1,0 +1,57 @@
+Support the Linux 4.4 read API and PWM period type on RK3326.
+
+diff --git a/rocknix-singleadc-joypad.c b/rocknix-singleadc-joypad.c
+index b388e9f..b3a505e 100644
+--- a/rocknix-singleadc-joypad.c
++++ b/rocknix-singleadc-joypad.c
+@@ -26,6 +26,21 @@
+ #include <linux/workqueue.h>
+ #include <linux/jiffies.h>
+ 
++/* Linux 4.4 takes the offset by value; emulate the newer position API. */
++static ssize_t joypad_kernel_read(struct file *file, void *buf,
++                                 size_t count, loff_t *pos)
++{
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
++	ssize_t ret = kernel_read(file, *pos, buf, count);
++
++	if (ret > 0)
++		*pos += ret;
++	return ret;
++#else
++	return kernel_read(file, buf, count, pos);
++#endif
++}
++
+ /*----------------------------------------------------------------------------*/
+ #define DRV_NAME "rocknix-singleadc-joypad"
+ /*----------------------------------------------------------------------------*/
+@@ -646,7 +661,8 @@ static ssize_t joypad_show_period(struct device *dev,
+ 	struct platform_device *pdev  = to_platform_device(dev);
+ 	struct joypad *joypad = platform_get_drvdata(pdev);
+ 
+-	return sprintf(buf, "%llu\n", pwm_get_period(joypad->pwm));
++	return sprintf(buf, "%llu\n",
++		       (unsigned long long)pwm_get_period(joypad->pwm));
+ }
+ 
+ /*----------------------------------------------------------------------------*/
+@@ -1483,7 +1499,7 @@ static int miyoo_autocal(struct joypad *joypad)
+ 	dev_info(joypad->dev, "Auto-calibration: reading %d frames...", MIYOO_CALIBRATION_FRAMES);
+ 
+ 	while (framesRead < MIYOO_CALIBRATION_FRAMES) {
+-		ssize_t n = kernel_read(joypad->miyoo_filp, buf, MIYOO_FRAME_SIZE, &joypad->miyoo_filp->f_pos);
++		ssize_t n = joypad_kernel_read(joypad->miyoo_filp, buf, MIYOO_FRAME_SIZE, &joypad->miyoo_filp->f_pos);
+ 		if (n < 0) {
+ 			dev_err(joypad->dev, "Auto-cal read error: %zd\n", n);
+ 			msleep(10);
+@@ -1594,7 +1610,7 @@ static int miyoo_serial_threadfn(void *data)
+ 	dev_info(joypad->dev, "Starting Miyoo serial read loop.\n");
+ 
+ 	while (!kthread_should_stop()) {
+-		ssize_t n = kernel_read(joypad->miyoo_filp, frame, MIYOO_FRAME_SIZE, &joypad->miyoo_filp->f_pos);
++		ssize_t n = joypad_kernel_read(joypad->miyoo_filp, frame, MIYOO_FRAME_SIZE, &joypad->miyoo_filp->f_pos);
+ 		if (n < 0) {
+ 			dev_err(joypad->dev, "Serial read error: %zd\n", n);
+ 			msleep(10);
+
