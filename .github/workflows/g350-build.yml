@@ -75,7 +75,7 @@ jobs:
           set +e
           make rk3326-build \
             BATCH_MODE=1 \
-            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
+            EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES=\"rockchip/rk3326/g350\" BR2_PACKAGE_FFMPEG_EXTRACONF=\"--disable-libx265\"' \
             CMD=armbian-firmware-source
           probe_status=$?
           set -e
@@ -149,22 +149,24 @@ jobs:
           test "${#digest}" -eq 64
           printf '%s  %s\n' "${digest}" "dl/libtool/${filename}" | sha256sum --check -
 
-      - name: Compile controller first, then build G350 image
+      - name: Check controller and FFmpeg, then build G350 image
         shell: bash
         run: |
           set +e
           set -uo pipefail
           compile_log="cozos-g350-compile.log"
+          # Omit optional x265 encoding; native HEVC decoding is retained.
+          # Check the controller and FFmpeg before building all emulators.
           # Buildroot builds the toolchain and kernel prerequisites first.
           # Reuse those outputs for the full image only if the driver passes.
           build_status=0
-          for target in rocknix-joypad all; do
+          for target in rocknix-joypad ffmpeg-configure all; do
             echo "::group::Build target: ${target}"
             make rk3326-build \
               BATCH_MODE=1 \
               PARALLEL_BUILD=1 \
               MAKE_JLEVEL="$(nproc)" \
-              EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES="rockchip/rk3326/g350"' \
+              EXTRA_OPTS='BR2_TARGET_KNULLI_IMAGES=\"rockchip/rk3326/g350\" BR2_PACKAGE_FFMPEG_EXTRACONF=\"--disable-libx265\"' \
               CMD="${target}" \
               2>&1 | tee -a "${compile_log}"
             pipeline_status=("${PIPESTATUS[@]}")
@@ -200,6 +202,11 @@ jobs:
             cozos-g350-error-tail.txt
             cozos-g350-compile.log.gz
             cozos-g350-build-metadata.txt
+            output/rk3326/.config
+            output/rk3326/build/**/config.log
+            output/rk3326/build/**/CMakeCache.txt
+            output/rk3326/build/**/CMakeError.log
+            output/rk3326/host/**/x265.pc
           if-no-files-found: warn
           compression-level: 0
           retention-days: 7
