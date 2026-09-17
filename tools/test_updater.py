@@ -11,7 +11,7 @@ def load(root):
 
 
 def make_update(path,version='0.6.1',tamper=False,unsafe=False):
-    files={'app/control_center_060.py':b'print("ok")\n','app/updater.py':b'VERSION="0.6.1"\n'}
+    files={'app/main.py':b'print("ok")\n','app/updater.py':('VERSION="'+version+'"\n').encode()}
     manifest={'version':version,'files':{k:hashlib.sha256(v).hexdigest() for k,v in files.items()}}
     if tamper: manifest['files']['app/updater.py']='0'*64
     with zipfile.ZipFile(path,'w') as z:
@@ -26,7 +26,7 @@ class UpdaterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); mod=load(root)
             old=mod.APPS/'0.6.0'; old.mkdir(parents=True)
-            (old/'control_center_060.py').write_text('old')
+            (old/'main.py').write_text('old')
             (old/'updater.py').write_text('old')
             mod.ACTIVE.parent.mkdir(parents=True,exist_ok=True); mod.ACTIVE.write_text('0.6.0\n')
             pkg=root/'good.zip'; make_update(pkg)
@@ -54,5 +54,14 @@ class UpdaterTests(unittest.TestCase):
             root=Path(td); mod=load(root)
             pkg=root/'good.zip'; make_update(pkg)
             with self.assertRaises(RuntimeError): mod.install_package(pkg,expected_sha256='0'*64)
+
+    def test_semantic_version_ordering(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); mod=load(root)
+            self.assertGreater(mod.version_key('0.10.0'),mod.version_key('0.9.9'))
+            for version in ('0.9.9','0.10.0'):
+                pkg=mod.UPDATES/('CozOS-G350-Update-'+version+'.zip')
+                pkg.parent.mkdir(parents=True,exist_ok=True); make_update(pkg,version=version)
+            self.assertEqual(mod.inspect_package(mod.newest_local()),'0.10.0')
 
 if __name__=='__main__': unittest.main()
