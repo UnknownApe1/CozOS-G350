@@ -11,15 +11,16 @@ keeps KNULLI as the maintained Linux/emulator base.
 
 ## Download
 
-### [Download CozOS G350 0.4.4](releases/CozOS-G350-Overlay-0.4.4.zip)
+### CozOS G350 0.6.0
 
-SHA-256:
+The release contains two packages:
 
-```text
-ccd2a7f741a7bae9addc7c7ecdaaac0757a78de48cf1df48de63a478d84fd630
-```
+- `CozOS-G350-Overlay-0.6.0.zip` — full first-install/repair package.
+- `CozOS-G350-Update-0.6.0.zip` — versioned Control Center update package.
 
-Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
+Verify downloads against the adjacent `.sha256` files in `releases/`.
+
+The hardware baseline is a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 
 ## What CozOS adds
 
@@ -33,20 +34,49 @@ Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 - A working CozOS boot splash using KNULLI's rootfs overlay mechanism.
 - Preservation of ROMs, BIOS files, saves, save states, scraped media, and
   existing explicit emulator settings.
-- Checksum-verified backups and a complete Remove/rollback command.
+- Checksum-verified settings backups and complete CozOS removal/rollback.
+- One permanent **CozOS Control Center** for install/repair, diagnostics,
+  backups, verified restore, updates, version rollback, and removal.
+- Versioned Control Center applications under `/userdata/system/cozos/apps`, so
+  an update is staged and verified before the active version is switched.
+- Local updates from `SHARE/cozos-updates` and optional checksum-verified online
+  updates, with progress, persistent logs, and a restart notice.
 
-## Install
+## First install / upgrade to 0.6.0
 
 1. Install and boot the official KNULLI G350 image at least once.
-2. Download and extract the ZIP above.
+2. Extract `CozOS-G350-Overlay-0.6.0.zip` on a computer. Do not flash the ZIP.
 3. Copy the **contents** of its `roms/ports` folder into the existing
    `roms/ports` folder on KNULLI's `SHARE` partition.
 4. Allow the `cozos` folder and files to merge/replace older versions.
-5. Boot the G350, open **Ports**, and run **CozOS 0.4.4 - Install**.
-6. Wait for the overlay save to finish; do not power off during installation.
-7. Reboot normally through KNULLI.
+5. Boot the G350 and open **Ports → CozOS Control Center**.
+6. On its first 0.6.0 launch, the stable Ports entry bootstraps the application
+   into `/userdata/system/cozos/apps/0.6.0` and records it as the active version.
+7. Choose **Install or repair CozOS 0.6.0** and let the overlay save finish.
+8. Reboot normally through KNULLI.
 
 You do not need to uninstall an older CozOS version before upgrading.
+
+## Future CozOS updates
+
+For an offline update, copy `CozOS-G350-Update-x.y.z.zip` to:
+
+```text
+SHARE/cozos-updates
+```
+
+Then open **CozOS Control Center → Install local update**. The updater validates
+the package manifest and SHA-256 hashes, stages the new version separately, and
+changes the active-version pointer only after validation succeeds. The previous
+version is retained for Control Center rollback.
+
+When network access is available, **Check and install online update** uses the
+published release index and verifies the package SHA-256 before installation.
+Update activity is logged at:
+
+```text
+/userdata/system/cozos/logs/updates.log
+```
 
 See [the full installation and recovery guide](docs/INSTALL.md).
 
@@ -67,13 +97,15 @@ future work and for upstreamable patches.
 ## Known limitation
 
 The G350 rumble motor activates briefly during early boot. That occurs before
-the current CozOS user-space overlay loads, so 0.4.4 does not change it.
+the current CozOS user-space overlay loads, so 0.6.0 does not change it.
 
 ## Source layout
 
-- `overlay/g350/` — installable update source.
-- `releases/` — tested downloadable packages and checksums.
+- `overlay/g350/` — installable full overlay source.
+- `releases/` — downloadable full/update packages, checksums, and release index.
 - `docs/` — installation, recovery, compatibility, and feature notes.
+- `tools/build_overlay_release.py` — deterministic full-overlay and versioned
+  updater packaging/validation; it does not compile a firmware image.
 - inherited KNULLI folders — upstream Buildroot/firmware source retained for
   low-level development.
 

@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.4.4
+CozOS G350 SD-card overlay 0.5.3
 ===============================
 
 This is a targeted update for the BATLEXP G350 running KNULLI Scarab
@@ -10,8 +10,20 @@ checksum-verified, but this installed G350 build did not display it. KNULLI's
 own boot-logo guide warns that its boot-partition bootlogo.bmp process is not
 supported on every device. This G350 also had no original bootlogo.bmp.
 
-WHAT 0.4.4 CHANGES
-0.4.4 detects the image selected by the G350's installed
+WHAT 0.5.3 ADDS
+0.5.3 makes VaixTerm interpret the G350's A/B/X/Y controls by their printed
+labels instead of positional/Xbox labels. Physical A selects, physical B
+returns, and START also selects. The change applies only to Control Center.
+
+It retains 0.5.2's direct terminal menu and full-render fix for the blank
+dialog/ncurses screen.
+
+It keeps the hardware-tested 0.4.4 fixes and replaces the separate
+Install, Status, and Remove entries with one stable "CozOS Control Center".
+It provides install/repair, diagnostics, version information, settings backup,
+verified restore, and complete rollback in one place.
+
+The splash fix detects the image selected by the G350's installed
 /etc/init.d/S03system-splash script. On this KNULLI family that is an existing
 PNG under /usr/share/knulli/splash. It replaces only that exact file, then runs
 KNULLI's official knulli-save-overlay command so the change survives reboot.
@@ -32,14 +44,16 @@ INSTALL / UPGRADE
    roms/ports folder on the KNULLI SHARE/data partition. Allow folders and
    files to merge/replace the older CozOS files.
 4. Put the card in the G350 and boot. Refresh the game list if required.
-5. Open Ports and run "CozOS 0.4.4 - Install" once.
+5. Open Ports, run "CozOS Control Center", and choose
+   "Install or repair CozOS 0.5.3" once.
 6. Wait for it to finish, then reboot normally through KNULLI.
 
 The overlay-saving step can take several minutes. Do not power off while the
-installer is running. You do not need to uninstall 0.4.3 first.
+installer is running. You do not need to uninstall an older CozOS first.
 
 ROLLBACK
-Run "CozOS 0.4.4 - Remove". It verifies the current CozOS image, restores the
+Open the Control Center and choose "Remove CozOS / complete rollback". It
+verifies the current CozOS image, restores the
 exact original PNG from a SHA-256 checked backup, and saves the KNULLI overlay
 again. It refuses to overwrite a later manual edit.
 
@@ -49,9 +63,10 @@ partition, enter its boot folder, and delete the file named "overlay". This
 discards every rootfs overlay modification, not ROMs, saves, or userdata.
 
 STATUS / DIAGNOSTICS
-Run "CozOS 0.4.4 - Status". Reports are written under:
+Choose "Status and diagnostics" in the Control Center. Reports are written under:
   /userdata/system/cozos/report.txt
   /userdata/system/cozos/rootfs-splash-status.txt
+  /userdata/system/cozos/control-center-report.txt
   /userdata/system/cozos/rootfs-splash-last-action.txt  (only after an error)
 
 KNOWN LIMIT

@@ -1,0 +1,55 @@
+name: Build CozOS G350 overlay
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "VERSION"
+      - "overlay/g350/**"
+      - "tools/build_overlay_release.py"
+      - "tools/test_*.py"
+      - ".github/workflows/build-overlay.yml"
+  push:
+    branches: [knulli-main]
+    paths:
+      - "VERSION"
+      - "overlay/g350/**"
+      - "tools/build_overlay_release.py"
+      - "tools/test_*.py"
+      - ".github/workflows/build-overlay.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            VERSION
+            overlay/g350
+            tools
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test Control Center, updater, and Ports launcher
+        run: python3 -m unittest discover -s tools -p "test_*.py" -v
+      - name: Validate and package overlay/update
+        run: python3 tools/build_overlay_release.py --output-dir dist
+      - name: Upload release payloads
+        uses: actions/upload-artifact@v4
+        with:
+          name: cozos-g350-release-${{ github.sha }}
+          path: |
+            dist/CozOS-G350-Overlay-*.zip
+            dist/CozOS-G350-Overlay-*.zip.sha256
+            dist/CozOS-G350-Update-*.zip
+            dist/CozOS-G350-Update-*.zip.sha256
+            dist/index.json
+          if-no-files-found: error
+          retention-days: 30
