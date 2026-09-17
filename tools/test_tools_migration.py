@@ -6,7 +6,7 @@ import sys
 import tempfile
 import unittest
 
-APP = Path(__file__).parent / 'overlay/g350/roms/ports/cozos'
+APP = Path(__file__).resolve().parents[1] / 'overlay/g350/roms/ports/cozos'
 
 
 class ToolsMigrationTests(unittest.TestCase):
