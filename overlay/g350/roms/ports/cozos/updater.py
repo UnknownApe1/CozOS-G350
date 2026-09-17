@@ -2,7 +2,7 @@
 import hashlib, json, os, shutil, urllib.request, zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION='0.6.0'
+VERSION='0.6.1'
 ROOT=Path(os.environ.get('COZOS_ROOT','/'))
 STATE=ROOT/'userdata/system/cozos'
 APPS=STATE/'apps'

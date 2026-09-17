@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.1 — permanent Tools Control Center
+
+- Adds a permanent `Tools → CozOS Control Center` launcher and uses Ports only
+  for the one-time bootstrap/migration.
+- Writes and checksum-verifies the Tools launcher before hiding the verified
+  CozOS Ports launcher.
+- Refuses to overwrite or remove unrelated and manually edited launcher files.
+- Keeps local/online updates and version rollback working from Tools through
+  the verified active-version pointer.
+- Extends complete rollback to remove verified CozOS launchers and versioned
+  application files while preserving user data.
+
 ## 0.6.0 — versioned updater and permanent Tools launcher
 
 - Turned the stable Ports Control Center into a one-time bootstrap launcher.
