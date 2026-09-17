@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib, json, os, shutil, tempfile, urllib.request, zipfile
+import hashlib, json, os, shutil, urllib.request, zipfile
 from pathlib import Path, PurePosixPath
 
 VERSION='0.6.0'
@@ -10,7 +10,11 @@ ACTIVE=STATE/'active-version'
 UPDATES=ROOT/'userdata/cozos-updates'
 LOGS=STATE/'logs'
 INDEX_URL=os.environ.get('COZOS_INDEX_URL','https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/index.json')
-REQUIRED=('control_center_060.py','updater.py')
+REQUIRED=('main.py','updater.py')
+
+def version_key(value):
+    try: return tuple(int(part) for part in value.split('.'))
+    except ValueError: return (-1,)
 
 def sha256_file(path):
     h=hashlib.sha256()
@@ -66,21 +70,16 @@ def install_package(path, expected_sha256=None, cb=None):
     version=inspect_package(path)
     progress(cb,25,'Validated CozOS '+version)
     APPS.mkdir(parents=True, exist_ok=True)
-    staging=APPS/(version+'.staging')
-    target=APPS/version
+    staging=APPS/(version+'.staging'); target=APPS/version
     shutil.rmtree(staging,ignore_errors=True)
-    active=current_version()
-    active_dir=APPS/active if active else None
-    if active_dir and active_dir.is_dir():
-        shutil.copytree(active_dir, staging)
-    else:
-        staging.mkdir(parents=True, exist_ok=True)
+    active=current_version(); active_dir=APPS/active if active else None
+    if active_dir and active_dir.is_dir(): shutil.copytree(active_dir,staging)
+    else: staging.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(path,'r') as z:
         for info in _safe_members(z):
             if not info.filename.startswith('cozos-update/app/') or info.is_dir(): continue
             rel=PurePosixPath(info.filename).relative_to('cozos-update/app')
-            out=staging.joinpath(*rel.parts)
-            out.parent.mkdir(parents=True,exist_ok=True)
+            out=staging.joinpath(*rel.parts); out.parent.mkdir(parents=True,exist_ok=True)
             with z.open(info) as src, open(out,'wb') as dst: shutil.copyfileobj(src,dst)
     progress(cb,60,'Staged version '+version)
     for name in REQUIRED:
@@ -90,15 +89,13 @@ def install_package(path, expected_sha256=None, cb=None):
     os.replace(staging,target)
     progress(cb,80,'Installed versioned app files')
     previous=current_version()
-    tmp=ACTIVE.with_suffix('.tmp')
-    tmp.write_text(version+'\n')
-    os.replace(tmp,ACTIVE)
+    tmp=ACTIVE.with_suffix('.tmp'); tmp.write_text(version+'\n'); os.replace(tmp,ACTIVE)
     progress(cb,100,'Activated CozOS '+version)
-    return version, previous
+    return version,previous
 
 def rollback(cb=None):
     active=current_version()
-    versions=sorted([p.name for p in APPS.iterdir() if p.is_dir() and not p.name.endswith('.staging')], reverse=True) if APPS.exists() else []
+    versions=sorted((p.name for p in APPS.iterdir() if p.is_dir() and not p.name.endswith('.staging')),key=version_key,reverse=True) if APPS.exists() else []
     choices=[v for v in versions if v!=active]
     if not choices: raise RuntimeError('No previous CozOS version is available for rollback')
     target=choices[0]
@@ -108,13 +105,16 @@ def rollback(cb=None):
 
 def newest_local():
     if not UPDATES.exists(): return None
-    candidates=sorted(UPDATES.glob('CozOS-G350-Update-*.zip'), reverse=True)
-    return candidates[0] if candidates else None
+    candidates=[]
+    for path in UPDATES.glob('CozOS-G350-Update-*.zip'):
+        try: candidates.append((version_key(inspect_package(path)),path))
+        except Exception: continue
+    return max(candidates,key=lambda item:item[0])[1] if candidates else None
 
 def install_local(cb=None):
     package=newest_local()
-    if not package: raise RuntimeError('No update ZIP found in SHARE/cozos-updates')
-    return install_package(package, cb=cb)
+    if not package: raise RuntimeError('No valid update ZIP found in SHARE/cozos-updates')
+    return install_package(package,cb=cb)
 
 def fetch_online(cb=None):
     progress(cb,5,'Checking online release index')
@@ -123,8 +123,6 @@ def fetch_online(cb=None):
     progress(cb,20,'Latest online version is '+version)
     UPDATES.mkdir(parents=True,exist_ok=True)
     destination=UPDATES/('CozOS-G350-Update-'+version+'.zip')
-    with urllib.request.urlopen(url,timeout=60) as r, open(destination,'wb') as f:
-        shutil.copyfileobj(r,f)
+    with urllib.request.urlopen(url,timeout=60) as r, open(destination,'wb') as f: shutil.copyfileobj(r,f)
     progress(cb,60,'Downloaded update package')
-    result=install_package(destination,expected_sha256=checksum,cb=lambda p,t: progress(cb,60+int(p*.4),t))
-    return result
+    return install_package(destination,expected_sha256=checksum,cb=lambda p,t:progress(cb,60+int(p*.4),t))
