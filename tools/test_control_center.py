@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 import zipfile
 
 MODULE = (Path(__file__).resolve().parents[1] /
@@ -12,6 +14,28 @@ MODULE = (Path(__file__).resolve().parents[1] /
 SPEC = importlib.util.spec_from_file_location('cozos_control_center', MODULE)
 cc = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cc)
+
+
+class TerminalUITests(unittest.TestCase):
+    def test_controller_keys_navigate_to_exit(self):
+        ui = cc.UI()
+        ui.interactive = True
+        keys = iter(['down'] * 6 + ['select'])
+        ui._key = lambda: next(keys)
+        output = io.StringIO()
+        with redirect_stdout(output):
+            choice = ui.menu()
+        self.assertEqual(choice, '0')
+        self.assertIn('COZOS G350  |  CONTROL CENTER ' + cc.VERSION,
+                      output.getvalue())
+        self.assertIn('> Exit', output.getvalue())
+
+    def test_back_cancels_confirmation(self):
+        ui = cc.UI()
+        ui.interactive = True
+        ui._key = lambda: 'back'
+        with redirect_stdout(io.StringIO()):
+            self.assertFalse(ui.confirm('Rollback', 'Remove CozOS?'))
 
 
 class BackupTests(unittest.TestCase):

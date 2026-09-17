@@ -32,8 +32,8 @@ class LauncherTests(unittest.TestCase):
                                     text=True, env=environment, timeout=5, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
             arguments = log.read_text().splitlines()
-            self.assertEqual(arguments[:7], ['-w', '640', '-h', '480', '--no-credit',
-                                              '-e', 'python3 "' +
+            self.assertEqual(arguments[:8], ['-w', '640', '-h', '480', '--no-credit',
+                                              '--force-full-render', '-e', 'python3 "' +
                                               str(ports / 'cozos/control_center.py') + '"'])
 
 

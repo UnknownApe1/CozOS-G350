@@ -9,10 +9,10 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 # EmulationStation launches Ports without a terminal.  The Control Center uses
-# KNULLI's dialog UI, so open it in KNULLI's bundled SDL terminal when no TTY is
-# attached.  VaixTerm maps the handheld controls to terminal navigation keys.
+# a controller-driven terminal UI, so open it in KNULLI's bundled SDL terminal
+# when no TTY is attached. VaixTerm maps the handheld controls to terminal keys.
 if { [ ! -t 0 ] || [ ! -t 1 ]; } && command -v vaixterm >/dev/null 2>&1; then
-    exec vaixterm -w 640 -h 480 --no-credit \
+    exec vaixterm -w 640 -h 480 --no-credit --force-full-render \
         -e "python3 \"${HERE}/cozos/control_center.py\""
 fi
 

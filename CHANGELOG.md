@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 — controller-native Control Center
+
+- Replaced the `dialog`/ncurses interface that rendered blank in VaixTerm with
+  a dependency-free ANSI menu driven directly by the G350 controls.
+- Added D-pad navigation, A/START selection, B back/cancel, scrollable result
+  screens, safe confirmation defaults, cursor restoration, and crash logging.
+- Enabled VaixTerm full-render mode for reliable 640×480 redraws.
+
 ## 0.5.1 — visible Control Center hotfix
 
 - Fixed the Control Center immediately returning to EmulationStation when

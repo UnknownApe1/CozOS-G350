@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.5.1
+CozOS G350 SD-card overlay 0.5.2
 ===============================
 
 This is a targeted update for the BATLEXP G350 running KNULLI Scarab
@@ -10,11 +10,10 @@ checksum-verified, but this installed G350 build did not display it. KNULLI's
 own boot-logo guide warns that its boot-partition bootlogo.bmp process is not
 supported on every device. This G350 also had no original bootlogo.bmp.
 
-WHAT 0.5.1 ADDS
-0.5.1 fixes the Control Center returning immediately to EmulationStation on
-Ports launches that do not provide a terminal. It opens the menu through
-KNULLI's bundled 640x480 VaixTerm terminal so the dialog interface is visible
-and navigable with the handheld controls.
+WHAT 0.5.2 ADDS
+0.5.2 replaces the incompatible dialog/ncurses screen with a direct terminal
+menu designed for KNULLI's VaixTerm. D-pad moves, A or START selects, and B
+returns. Full-render mode prevents a blank or partially refreshed screen.
 
 It keeps the hardware-tested 0.4.4 fixes and replaces the separate
 Install, Status, and Remove entries with one stable "CozOS Control Center".
@@ -43,7 +42,7 @@ INSTALL / UPGRADE
    files to merge/replace the older CozOS files.
 4. Put the card in the G350 and boot. Refresh the game list if required.
 5. Open Ports, run "CozOS Control Center", and choose
-   "Install or repair CozOS 0.5.1" once.
+   "Install or repair CozOS 0.5.2" once.
 6. Wait for it to finish, then reboot normally through KNULLI.
 
 The overlay-saving step can take several minutes. Do not power off while the

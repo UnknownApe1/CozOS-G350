@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """CozOS G350 Control Center.
 
-This is deliberately self-contained and uses only Python's standard library
-plus KNULLI's optional ``dialog`` command.  It never downloads or flashes a
-firmware image.
+This is deliberately self-contained and uses only Python's standard library.
+It never downloads or flashes a firmware image.
 """
 import datetime
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
-import shutil
 import subprocess
 import sys
+import termios
+import textwrap
+import time
+import traceback
+import tty
 import zipfile
 
-VERSION = '0.5.1'
+VERSION = '0.5.2'
 ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 PORTS = Path(__file__).resolve().parent.parent
 COZOS = Path(__file__).resolve().parent
@@ -205,22 +208,113 @@ def update_info():
 
 class UI:
     def __init__(self):
-        self.dialog = (ROOT == Path('/') and sys.stdout.isatty() and
-                       shutil.which('dialog') is not None)
+        self.interactive = sys.stdin.isatty() and sys.stdout.isatty()
+        self.saved_terminal = None
+
+    def start(self):
+        if self.interactive:
+            self.saved_terminal = termios.tcgetattr(sys.stdin.fileno())
+            tty.setcbreak(sys.stdin.fileno())
+            sys.stdout.write('\x1b[?25l')
+            sys.stdout.flush()
+
+    def close(self):
+        if self.saved_terminal is not None:
+            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN,
+                              self.saved_terminal)
+            self.saved_terminal = None
+        if self.interactive:
+            sys.stdout.write('\x1b[0m\x1b[?25h\x1b[2J\x1b[H')
+            sys.stdout.flush()
+
+    @staticmethod
+    def _screen(title, body, footer='D-pad: move   A/START: select   B: back'):
+        # VaixTerm renders ordinary ANSI output more consistently than the
+        # alternate-screen ncurses sequences emitted by dialog.
+        lines = ['COZOS G350  |  CONTROL CENTER ' + VERSION,
+                 '=' * 62, title, '-' * 62]
+        lines.extend(body)
+        lines.extend(['', '-' * 62, footer])
+        sys.stdout.write('\x1b[2J\x1b[H' + '\n'.join(lines) + '\n')
+        sys.stdout.flush()
+
+    @staticmethod
+    def _key():
+        first = os.read(sys.stdin.fileno(), 1)
+        if not first:
+            return 'back'
+        if first == b'\x1b':
+            sequence = first
+            # Arrow keys arrive as a short escape sequence. Give the PTY a
+            # moment to deliver the remaining bytes without ever blocking.
+            import select
+            deadline = time.monotonic() + 0.08
+            while time.monotonic() < deadline:
+                ready, _, _ = select.select([sys.stdin], [], [], 0.01)
+                if not ready:
+                    continue
+                sequence += os.read(sys.stdin.fileno(), 1)
+                if len(sequence) >= 3:
+                    break
+            return {b'\x1b[A': 'up', b'\x1b[B': 'down',
+                    b'\x1b[C': 'right', b'\x1b[D': 'left'}.get(sequence, 'back')
+        if first in (b'\r', b'\n', b' '):
+            return 'select'
+        if first in (b'\x08', b'\x7f', b'q', b'Q'):
+            return 'back'
+        return first.decode(errors='ignore').lower()
+
+    @staticmethod
+    def _wrapped(message, width=70):
+        lines = []
+        for line in message.splitlines() or ['']:
+            lines.extend(textwrap.wrap(line, width=width,
+                                       replace_whitespace=False,
+                                       drop_whitespace=False) or [''])
+        return lines
 
     def message(self, title, message):
-        if self.dialog:
-            subprocess.run(['dialog', '--clear', '--title', title, '--msgbox',
-                            message[-7000:], '22', '76'], check=False)
-        else:
+        if not self.interactive:
             print('\n== ' + title + ' ==\n' + message)
+            return
+        lines = self._wrapped(message)
+        offset = 0
+        page_size = 18
+        while True:
+            page = lines[offset:offset + page_size]
+            if offset:
+                page.insert(0, '^ more above ^')
+            if offset + page_size < len(lines):
+                page.append('v more below v')
+            self._screen(title, page, 'D-pad: scroll   A/START/B: return')
+            key = self._key()
+            if key == 'up':
+                offset = max(0, offset - page_size)
+            elif key == 'down':
+                offset = min(max(0, len(lines) - page_size), offset + page_size)
+            elif key in ('select', 'back'):
+                return
 
     def confirm(self, title, message):
-        if self.dialog:
-            return subprocess.run(['dialog', '--clear', '--title', title, '--yesno',
-                                   message, '14', '70'], check=False).returncode == 0
-        answer = input(message + ' [y/N] ').strip().lower()
-        return answer in ('y', 'yes')
+        if not self.interactive:
+            answer = input(message + ' [y/N] ').strip().lower()
+            return answer in ('y', 'yes')
+        yes = False
+        while True:
+            choices = ('  YES  ' if yes else '> NO   ')
+            if yes:
+                choices = '> YES     NO   '
+            else:
+                choices = '  YES   > NO  '
+            self._screen(title, self._wrapped(message) + ['', choices],
+                         'D-pad: choose   A/START: confirm   B: cancel')
+            key = self._key()
+            if key in ('left', 'right', 'up', 'down'):
+                yes = not yes
+            elif key == 'select':
+                return yes
+            elif key == 'back':
+                return False
 
     def menu(self):
         items = [
@@ -232,53 +326,78 @@ class UI:
             ('6', 'Remove CozOS / complete rollback'),
             ('0', 'Exit'),
         ]
-        if self.dialog:
-            command = ['dialog', '--clear', '--title', 'CozOS G350 Control Center',
-                       '--menu', 'Choose an action', '22', '76', '10']
+        if not self.interactive:
+            print('\nCozOS G350 Control Center ' + VERSION)
             for key, description in items:
-                command.extend((key, description))
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
-            return result.stderr.strip() if result.returncode == 0 else '0'
-        print('\nCozOS G350 Control Center ' + VERSION)
-        for key, description in items:
-            print('  ' + key + '. ' + description)
-        return input('Selection: ').strip()
+                print('  ' + key + '. ' + description)
+            return input('Selection: ').strip()
+        selected = 0
+        while True:
+            body = []
+            for index, (_, description) in enumerate(items):
+                body.append(('> ' if index == selected else '  ') + description)
+            self._screen('Choose an action', body)
+            key = self._key()
+            if key == 'up':
+                selected = (selected - 1) % len(items)
+            elif key == 'down':
+                selected = (selected + 1) % len(items)
+            elif key == 'select':
+                return items[selected][0]
+            elif key == 'back':
+                return '0'
+            elif key in {item[0] for item in items}:
+                return key
 
 
 def main():
     ui = UI()
-    while True:
-        choice = ui.menu()
-        if choice == '0' or not choice:
-            return 0
-        if choice == '1':
-            rc, message = install_or_repair()
-            ui.message('Install / repair' if rc == 0 else 'Install stopped', message)
-        elif choice == '2':
-            rc, message = status()
-            ui.message('Status' if rc == 0 else 'Diagnostics found a problem', message)
-        elif choice == '3':
-            rc, message = create_backup()
-            ui.message('Settings backup' if rc == 0 else 'Backup stopped', message)
-        elif choice == '4':
-            available = backups()
-            if not available:
-                ui.message('Restore', 'No CozOS settings backup is available to restore.')
-            elif ui.confirm('Restore settings', 'Restore the newest verified settings backup?\n\n' +
-                            str(available[0]) + '\n\nA safety backup will be created first.'):
-                rc, message = restore_latest()
-                ui.message('Restore complete' if rc == 0 else 'Restore stopped', message)
-        elif choice == '5':
-            _, message = update_info()
-            ui.message('Version and updates', message)
-        elif choice == '6':
-            if ui.confirm('Complete rollback', 'Remove CozOS and restore its verified backups?\n\n'
-                          'ROMs, BIOS, saves, save states, and media are not deleted.'):
-                rc, message = remove_cozos()
-                ui.message('Rollback complete' if rc == 0 else 'Rollback stopped', message)
-        else:
-            ui.message('CozOS', 'Unknown selection: ' + choice)
+    ui.start()
+    try:
+        while True:
+            choice = ui.menu()
+            if choice == '0' or not choice:
+                return 0
+            if choice == '1':
+                rc, message = install_or_repair()
+                ui.message('Install / repair' if rc == 0 else 'Install stopped', message)
+            elif choice == '2':
+                rc, message = status()
+                ui.message('Status' if rc == 0 else 'Diagnostics found a problem', message)
+            elif choice == '3':
+                rc, message = create_backup()
+                ui.message('Settings backup' if rc == 0 else 'Backup stopped', message)
+            elif choice == '4':
+                available = backups()
+                if not available:
+                    ui.message('Restore', 'No CozOS settings backup is available to restore.')
+                elif ui.confirm('Restore settings', 'Restore the newest verified settings backup?\n\n' +
+                                str(available[0]) + '\n\nA safety backup will be created first.'):
+                    rc, message = restore_latest()
+                    ui.message('Restore complete' if rc == 0 else 'Restore stopped', message)
+            elif choice == '5':
+                _, message = update_info()
+                ui.message('Version and updates', message)
+            elif choice == '6':
+                if ui.confirm('Complete rollback', 'Remove CozOS and restore its verified backups?\n\n'
+                              'ROMs, BIOS, saves, save states, and media are not deleted.'):
+                    rc, message = remove_cozos()
+                    ui.message('Rollback complete' if rc == 0 else 'Rollback stopped', message)
+            else:
+                ui.message('CozOS', 'Unknown selection: ' + choice)
+    finally:
+        ui.close()
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception:
+        STATE.mkdir(parents=True, exist_ok=True)
+        report = traceback.format_exc()
+        atomic(STATE / 'control-center-error.txt', report.encode())
+        sys.stderr.write('\nCozOS Control Center stopped unexpectedly.\n' + report +
+                         '\nError log: ' + str(STATE / 'control-center-error.txt') + '\n')
+        sys.stderr.flush()
+        time.sleep(8)
+        raise

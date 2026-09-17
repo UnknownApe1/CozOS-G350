@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 
-VERSION = '0.5.1'
+VERSION = '0.5.2'
 ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 STATE = ROOT / 'userdata/system/cozos'
 STATE_FILE = STATE / 'rootfs-splash.json'
