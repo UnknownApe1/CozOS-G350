@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.3 — G350 face-button labels
+
+- Enabled SDL label-based face-button reporting only for the Control Center.
+- Physical A now selects and physical B goes back, matching the printed G350
+  labels, while START remains an alternate select button.
+- Added a launcher regression test that verifies the isolated SDL setting.
+
 ## 0.5.2 — controller-native Control Center
 
 - Replaced the `dialog`/ncurses interface that rendered blank in VaixTerm with

@@ -21,12 +21,17 @@ class LauncherTests(unittest.TestCase):
             shutil.copy2(LAUNCHER, ports / LAUNCHER.name)
             (ports / 'cozos/control_center.py').write_text('raise SystemExit(0)\n')
             fake = bin_dir / 'vaixterm'
-            fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$VAIXTERM_LOG"\n')
+            fake.write_text('#!/bin/sh\n'
+                            'printf "%s\\n" "$@" > "$VAIXTERM_LOG"\n'
+                            'printf "%s\\n" "$SDL_GAMECONTROLLER_USE_BUTTON_LABELS" '
+                            '> "$VAIXTERM_ENV_LOG"\n')
             fake.chmod(0o755)
             log = root / 'vaixterm-args.txt'
+            env_log = root / 'vaixterm-env.txt'
             environment = os.environ.copy()
             environment['PATH'] = str(bin_dir) + os.pathsep + environment['PATH']
             environment['VAIXTERM_LOG'] = str(log)
+            environment['VAIXTERM_ENV_LOG'] = str(env_log)
             result = subprocess.run([str(ports / LAUNCHER.name)], stdin=subprocess.DEVNULL,
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True, env=environment, timeout=5, check=False)
@@ -35,6 +40,7 @@ class LauncherTests(unittest.TestCase):
             self.assertEqual(arguments[:8], ['-w', '640', '-h', '480', '--no-credit',
                                               '--force-full-render', '-e', 'python3 "' +
                                               str(ports / 'cozos/control_center.py') + '"'])
+            self.assertEqual(env_log.read_text().strip(), '1')
 
 
 if __name__ == '__main__':

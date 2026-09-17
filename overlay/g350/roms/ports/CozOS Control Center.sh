@@ -12,6 +12,11 @@ fi
 # a controller-driven terminal UI, so open it in KNULLI's bundled SDL terminal
 # when no TTY is attached. VaixTerm maps the handheld controls to terminal keys.
 if { [ ! -t 0 ] || [ ! -t 1 ]; } && command -v vaixterm >/dev/null 2>&1; then
+    # KNULLI normally treats face buttons by position.  The G350 prints the
+    # Nintendo-style labels, so ask SDL to report A/B/X/Y by those labels for
+    # this process only.  This keeps A=select and B=back without changing the
+    # user's controls anywhere else in KNULLI.
+    export SDL_GAMECONTROLLER_USE_BUTTON_LABELS=1
     exec vaixterm -w 640 -h 480 --no-credit --force-full-render \
         -e "python3 \"${HERE}/cozos/control_center.py\""
 fi

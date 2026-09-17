@@ -18,7 +18,7 @@ import traceback
 import tty
 import zipfile
 
-VERSION = '0.5.2'
+VERSION = '0.5.3'
 ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 PORTS = Path(__file__).resolve().parent.parent
 COZOS = Path(__file__).resolve().parent
