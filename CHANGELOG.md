@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — visible Control Center hotfix
+
+- Fixed the Control Center immediately returning to EmulationStation when
+  Ports launched it without an interactive terminal.
+- The launcher now opens the menu in KNULLI's bundled 640×480 VaixTerm SDL
+  terminal, giving `dialog` a real TTY and handheld navigation support.
+- Added an automated non-TTY Ports-launch test to prevent this regression.
+
 ## 0.5.0 — Control Center and fast overlay releases
 
 - Replaced three versioned Ports entries with one stable CozOS Control Center.

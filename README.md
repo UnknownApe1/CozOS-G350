@@ -11,12 +11,12 @@ keeps KNULLI as the maintained Linux/emulator base.
 
 ## Download
 
-### [Download CozOS G350 0.5.0](releases/CozOS-G350-Overlay-0.5.0.zip)
+### [Download CozOS G350 0.5.1](releases/CozOS-G350-Overlay-0.5.1.zip)
 
 SHA-256:
 
 ```text
-dc66e782bfc915efc78fde4807d1f09ec72c2e467bde14f41ab99f7ce2d6b4c4
+1e63b8b6cd79f84c46b4908f53480c9b91224980fdafa61a201a4290b5759dc9
 ```
 
 Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
@@ -45,7 +45,7 @@ Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
    `roms/ports` folder on KNULLI's `SHARE` partition.
 4. Allow the `cozos` folder and files to merge/replace older versions.
 5. Boot the G350, open **Ports**, run **CozOS Control Center**, and choose
-   **Install or repair CozOS 0.5.0**.
+   **Install or repair CozOS 0.5.1**.
 6. Wait for the overlay save to finish; do not power off during installation.
 7. Reboot normally through KNULLI.
 
@@ -70,7 +70,7 @@ future work and for upstreamable patches.
 ## Known limitation
 
 The G350 rumble motor activates briefly during early boot. That occurs before
-the current CozOS user-space overlay loads, so 0.5.0 does not change it.
+the current CozOS user-space overlay loads, so 0.5.1 does not change it.
 
 ## Source layout
 

@@ -15,7 +15,7 @@ import subprocess
 import sys
 import zipfile
 
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 PORTS = Path(__file__).resolve().parent.parent
 COZOS = Path(__file__).resolve().parent

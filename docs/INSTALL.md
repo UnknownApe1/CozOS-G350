@@ -3,14 +3,14 @@
 ## Requirements
 
 - BATLEXP G350.
-- Official KNULLI G350 installation. The 0.5.0 overlay retains the 0.4.4
+- Official KNULLI G350 installation. The 0.5.1 overlay retains the 0.4.4
   hardware-tested base for
   KNULLI Scarab 2026-05-10.
 - A backup of the working SD card is strongly recommended.
 
 ## Install or upgrade
 
-1. Download `releases/CozOS-G350-Overlay-0.5.0.zip`.
+1. Download `releases/CozOS-G350-Overlay-0.5.1.zip`.
 2. Optionally verify its SHA-256 against the adjacent `.sha256` file.
 3. Extract the ZIP on a computer. Do not flash the ZIP.
 4. Copy the contents of the extracted `roms/ports` directory to the existing
@@ -18,7 +18,7 @@
 5. Merge/replace the older CozOS files when prompted.
 6. Boot KNULLI and refresh the game list if the new Ports entries are absent.
 7. Run `CozOS Control Center` from Ports, then choose
-   `Install or repair CozOS 0.5.0`.
+   `Install or repair CozOS 0.5.1`.
 8. Wait for completion. Creating the KNULLI rootfs overlay can take several
    minutes. Do not reset or remove power while it is running.
 9. Reboot from the KNULLI menu.
