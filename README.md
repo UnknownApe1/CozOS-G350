@@ -1,6 +1,6 @@
 # CozOS G350
 
-![CozOS G350 boot splash](overlay/g350/roms/ports/cozos/assets/cozos-splash-640x480.png)
+![CozOS G350 v0.6.0](docs/assets/cozos-g350-v0.6.0-readme.jpg)
 
 **CozOS is a tested BATLEXP G350 enhancement pack for official KNULLI.**
 
