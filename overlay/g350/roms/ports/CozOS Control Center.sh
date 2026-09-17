@@ -3,7 +3,7 @@
 # versioned Control Center application files live under userdata/system/cozos.
 HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
 BUNDLED="${HERE}/cozos"
-STATE="/userdata/system/cozos"
+STATE="${COZOS_STATE:-/userdata/system/cozos}"
 APPS="${STATE}/apps"
 ACTIVE="${STATE}/active-version"
 BOOTSTRAP_VERSION="0.6.0"
@@ -15,10 +15,6 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 mkdir -p "${APPS}"
-
-# One-time bootstrap. Preserve the Ports copy as recovery media, but run the
-# application from a versioned directory so future updates can be staged and
-# rolled back without overwriting the working version.
 if [ ! -s "${ACTIVE}" ]; then
     DEST="${APPS}/${BOOTSTRAP_VERSION}"
     STAGE="${APPS}/${BOOTSTRAP_VERSION}.bootstrap"
@@ -40,7 +36,6 @@ fi
 VERSION="$(tr -d '\r\n' < "${ACTIVE}")"
 APP="${APPS}/${VERSION}"
 ENTRY="${APP}/control_center_060.py"
-
 if [ ! -f "${ENTRY}" ]; then
     echo "CozOS active version ${VERSION} is incomplete."
     echo "Delete ${ACTIVE} to force a safe bootstrap from the Ports package."
@@ -48,9 +43,6 @@ if [ ! -f "${ENTRY}" ]; then
     exit 1
 fi
 
-# EmulationStation launches Ports without a TTY. Open the controller-driven
-# UI in KNULLI's VaixTerm and isolate Nintendo-style face-button labels to this
-# Control Center process only.
 if { [ ! -t 0 ] || [ ! -t 1 ]; } && command -v vaixterm >/dev/null 2>&1; then
     export SDL_GAMECONTROLLER_USE_BUTTON_LABELS=1
     exec vaixterm -w 640 -h 480 --no-credit --force-full-render \
