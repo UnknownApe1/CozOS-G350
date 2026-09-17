@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.5.3
+CozOS G350 SD-card overlay 0.6.1
 ===============================
 
 This is a targeted update for the BATLEXP G350 running KNULLI Scarab
@@ -10,13 +10,17 @@ checksum-verified, but this installed G350 build did not display it. KNULLI's
 own boot-logo guide warns that its boot-partition bootlogo.bmp process is not
 supported on every device. This G350 also had no original bootlogo.bmp.
 
-WHAT 0.5.3 ADDS
-0.5.3 makes VaixTerm interpret the G350's A/B/X/Y controls by their printed
-labels instead of positional/Xbox labels. Physical A selects, physical B
-returns, and START also selects. The change applies only to Control Center.
+WHAT 0.6.1 ADDS
+0.6.1 moves CozOS Control Center into KNULLI's Tools section. Ports is used
+only as the safe bootstrap. The Tools launcher is written and checksum-verified
+before the CozOS Ports launcher is hidden. An unrelated or manually edited
+launcher is never overwritten or removed.
 
-It retains 0.5.2's direct terminal menu and full-render fix for the blank
-dialog/ncurses screen.
+Future local and online updates are installed from Control Center in Tools.
+Version rollback keeps the Tools launcher working because it follows CozOS's
+verified active-version pointer. Complete rollback removes the verified Tools
+launcher and versioned application files while preserving ROMs, BIOS, saves,
+save states, scraped media, and user settings.
 
 It keeps the hardware-tested 0.4.4 fixes and replaces the separate
 Install, Status, and Remove entries with one stable "CozOS Control Center".
@@ -44,9 +48,17 @@ INSTALL / UPGRADE
    roms/ports folder on the KNULLI SHARE/data partition. Allow folders and
    files to merge/replace the older CozOS files.
 4. Put the card in the G350 and boot. Refresh the game list if required.
-5. Open Ports, run "CozOS Control Center", and choose
-   "Install or repair CozOS 0.5.3" once.
-6. Wait for it to finish, then reboot normally through KNULLI.
+5. Open Ports and run "CozOS Control Center" once. CozOS creates and verifies
+   its permanent Tools launcher before hiding the Ports bootstrap.
+6. Choose "Install or repair CozOS 0.6.1".
+7. Wait for it to finish, then refresh the game list or reboot normally.
+8. From then on, open CozOS Control Center from Tools.
+
+UPGRADE FROM 0.6.0
+Put the unopened CozOS-G350-Update-0.6.1.zip in SHARE/cozos-updates. Open the
+0.6.0 Control Center in Ports and install the local update. Exit and open the
+Ports Control Center one final time; 0.6.1 automatically creates the verified
+Tools entry and hides Ports. Refresh the game list or reboot.
 
 The overlay-saving step can take several minutes. Do not power off while the
 installer is running. You do not need to uninstall an older CozOS first.

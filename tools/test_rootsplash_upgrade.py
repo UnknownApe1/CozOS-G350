@@ -35,7 +35,7 @@ class RootSplashUpgradeTests(unittest.TestCase):
             mod.legacy.save_state=lambda info:saved.append(dict(info))
             mod.legacy.save_overlay=lambda:'test-overlay-saved'
             message=mod.install()
-            self.assertIn('0.6.0',message)
+            self.assertIn('0.6.1',message)
             self.assertEqual(target.read_bytes(),new)
             self.assertEqual(saved[-1]['original_sha256'],original_sha)
             self.assertEqual(saved[-1]['installed_sha256'],hashlib.sha256(new).hexdigest())

@@ -1,11 +1,107 @@
 #!/usr/bin/env python3
-"""CozOS 0.6.0 Control Center management layer."""
-import subprocess, sys, traceback
+"""CozOS 0.6.1 Control Center management layer."""
+import hashlib, json, os, shutil, subprocess, sys, traceback
+from pathlib import Path
 import control_center as legacy
 import updater
 
-VERSION='0.6.0'
+VERSION='0.6.1'
 legacy.VERSION=VERSION
+
+TOOLS_LAUNCHER=legacy.ROOT/'userdata/roms/tools/CozOS Control Center.sh'
+PORTS_LAUNCHER=legacy.ROOT/'userdata/roms/ports/CozOS Control Center.sh'
+TOOLS_STATE=legacy.STATE/'tools-launcher.json'
+TOOLS_MARKER='# CozOS managed Tools launcher v1'
+PORTS_MARKER='# Stable Ports bootstrap/launcher for CozOS.'
+
+
+def tools_launcher_payload():
+    return f'''#!/bin/bash
+{TOOLS_MARKER}
+STATE="${{COZOS_STATE:-/userdata/system/cozos}}"
+ACTIVE="${{STATE}}/active-version"
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "CozOS requires Python 3 from KNULLI."
+    sleep 8
+    exit 1
+fi
+if [ ! -s "${{ACTIVE}}" ]; then
+    echo "No active CozOS version is installed."
+    sleep 8
+    exit 1
+fi
+
+VERSION="$(tr -d '\\r\\n' < "${{ACTIVE}}")"
+APP="${{STATE}}/apps/${{VERSION}}"
+ENTRY="${{APP}}/main.py"
+if [ ! -f "${{ENTRY}}" ]; then
+    echo "CozOS active version ${{VERSION}} is incomplete."
+    sleep 8
+    exit 1
+fi
+
+export SDL_GAMECONTROLLER_USE_BUTTON_LABELS=1
+if {{ [ ! -t 0 ] || [ ! -t 1 ]; }} && command -v vaixterm >/dev/null 2>&1; then
+    exec vaixterm -w 640 -h 480 --no-credit --force-full-render \\
+        -e "cd \\\"${{APP}}\\\" && python3 \\\"${{ENTRY}}\\\""
+fi
+
+cd "${{APP}}" || exit 1
+python3 "${{ENTRY}}"
+result=$?
+sleep 3
+exit "$result"
+'''.encode()
+
+
+def digest(payload):
+    return hashlib.sha256(payload).hexdigest()
+
+
+def install_tools_launcher():
+    """Atomically create Tools first, then remove only our Ports bootstrap."""
+    payload=tools_launcher_payload()
+    if TOOLS_LAUNCHER.exists():
+        current=TOOLS_LAUNCHER.read_bytes()
+        if current!=payload:
+            try: prior=json.loads(TOOLS_STATE.read_text())
+            except (OSError,ValueError,TypeError): prior={}
+            if (TOOLS_MARKER.encode() not in current or
+                    prior.get('installed_sha256')!=digest(current)):
+                raise RuntimeError('The Tools launcher was created or edited outside CozOS; refusing to overwrite it.')
+    legacy.atomic(TOOLS_LAUNCHER,payload,0o755)
+    if digest(TOOLS_LAUNCHER.read_bytes())!=digest(payload):
+        raise RuntimeError('Tools launcher failed checksum verification.')
+    legacy.atomic(TOOLS_STATE,(json.dumps({'version':VERSION,
+        'path':str(TOOLS_LAUNCHER),'installed_sha256':digest(payload)},
+        indent=2,sort_keys=True)+'\n').encode(),0o600)
+
+    # Never remove an unknown or user-edited Ports file.  The bootstrap is
+    # hidden only after the verified Tools launcher exists.
+    if PORTS_LAUNCHER.is_file():
+        current=PORTS_LAUNCHER.read_text(errors='replace')
+        if PORTS_MARKER in current:
+            PORTS_LAUNCHER.unlink()
+    return 'Installed '+str(TOOLS_LAUNCHER)+' and verified its checksum.'
+
+
+def remove_control_center_launchers():
+    try: state=json.loads(TOOLS_STATE.read_text())
+    except (OSError,ValueError,TypeError): state={}
+    for path,marker in ((TOOLS_LAUNCHER,TOOLS_MARKER),(PORTS_LAUNCHER,PORTS_MARKER)):
+        if not path.exists():
+            continue
+        payload=path.read_bytes(); current=payload.decode(errors='replace')
+        verified=(path==TOOLS_LAUNCHER and
+                  state.get('installed_sha256')==digest(payload))
+        if marker not in current or (path==TOOLS_LAUNCHER and not verified):
+            raise RuntimeError('Refusing to remove a launcher edited outside CozOS: '+str(path))
+        path.unlink()
+    TOOLS_STATE.unlink(missing_ok=True)
+    updater.ACTIVE.unlink(missing_ok=True)
+    if updater.APPS.exists():
+        shutil.rmtree(updater.APPS)
 
 
 def run_helper(name, action):
@@ -22,7 +118,11 @@ def install_or_repair():
     for label,helper,action in steps:
         rc,out=run_helper(helper,action); messages.append(label+':\n'+out)
         if rc: return rc,'\n\n'.join(messages)+'\n\nStopped safely at the failed step.'
-    return 0,'\n\n'.join(messages)+'\n\nCozOS 0.6.0 is installed. Reboot normally to finish applying system-level changes.'
+    try:
+        messages.append('Tools Control Center:\n'+install_tools_launcher())
+    except Exception as exc:
+        return 1,'\n\n'.join(messages)+'\n\nTools migration stopped safely: '+str(exc)
+    return 0,'\n\n'.join(messages)+'\n\nCozOS 0.6.1 is installed. Refresh the game list or reboot, then open Control Center from Tools.'
 
 
 def status():
@@ -32,7 +132,9 @@ def status():
     lines=['CozOS G350 Control Center '+VERSION,
            'Active managed version: '+(updater.current_version() or 'bootstrap copy'),
            'Installed overlay version: '+legacy.installed_version(),
-           'Device: '+model,'',
+           'Device: '+model,
+           'Tools launcher: '+('PASS' if TOOLS_LAUNCHER.is_file() else 'MISSING'),
+           'Ports bootstrap: '+('HIDDEN' if not PORTS_LAUNCHER.exists() else 'PRESENT'),'',
            'Overlay diagnostics: '+('PASS' if overlay_rc==0 else 'FAILED'),overlay_text,'',
            'Boot splash: '+('PASS' if splash_rc==0 else 'FAILED'),splash_text]
     report='\n'.join(lines).rstrip()+'\n'
@@ -48,6 +150,12 @@ def remove_cozos():
     messages=[]; result=0
     for label,helper,action in steps:
         rc,out=run_helper(helper,action); messages.append(label+':\n'+out); result=result or rc
+    if result==0:
+        try:
+            remove_control_center_launchers()
+            messages.append('Control Center launchers:\nRemoved verified CozOS launchers and versioned application files.')
+        except Exception as exc:
+            result=1; messages.append('Control Center launchers:\nRemoval stopped safely: '+str(exc))
     ending='Reboot normally to finish rollback.' if result==0 else 'One or more rollback checks stopped. Nothing unverified was overwritten.'
     return result,'\n\n'.join(messages)+'\n\n'+ending
 
@@ -101,8 +209,17 @@ class UI(legacy.UI):
 
 
 def main():
+    migration_error=''
+    try:
+        install_tools_launcher()
+    except Exception as exc:
+        migration_error=str(exc)
+        legacy.STATE.mkdir(parents=True,exist_ok=True)
+        legacy.atomic(legacy.STATE/'tools-migration-error.txt',migration_error.encode())
     ui=UI(); ui.start()
     try:
+        if migration_error:
+            ui.message('Tools migration stopped',migration_error+'\n\nThe Ports launcher was kept so you can retry Install / repair safely.')
         while True:
             choice=ui.menu()
             if choice in ('0',''): return 0

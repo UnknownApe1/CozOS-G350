@@ -17,7 +17,7 @@ class LauncherTests(unittest.TestCase):
             (ports/'cozos').mkdir(parents=True); bin_dir.mkdir()
             shutil.copy2(LAUNCHER,ports/LAUNCHER.name)
             (ports/'cozos/main.py').write_text('raise SystemExit(0)\n')
-            (ports/'cozos/updater.py').write_text('VERSION="0.6.0"\n')
+            (ports/'cozos/updater.py').write_text('VERSION="0.6.1"\n')
             fake=bin_dir/'vaixterm'
             fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$VAIXTERM_LOG"\nprintf "%s\\n" "$SDL_GAMECONTROLLER_USE_BUTTON_LABELS" > "$VAIXTERM_ENV_LOG"\n')
             fake.chmod(0o755)
@@ -29,11 +29,11 @@ class LauncherTests(unittest.TestCase):
                                   stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,
                                   env=environment,timeout=5,check=False)
             self.assertEqual(result.returncode,0,result.stderr)
-            self.assertEqual((state/'active-version').read_text().strip(),'0.6.0')
-            entry=state/'apps/0.6.0/main.py'
+            self.assertEqual((state/'active-version').read_text().strip(),'0.6.1')
+            entry=state/'apps/0.6.1/main.py'
             self.assertTrue(entry.is_file())
             arguments=log.read_text().splitlines()
-            expected='cd "'+str(state/'apps/0.6.0')+'" && python3 "'+str(entry)+'"'
+            expected='cd "'+str(state/'apps/0.6.1')+'" && python3 "'+str(entry)+'"'
             self.assertEqual(arguments[:8],['-w','640','-h','480','--no-credit','--force-full-render','-e',expected])
             self.assertEqual(env_log.read_text().strip(),'1')
 
