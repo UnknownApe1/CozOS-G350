@@ -15,8 +15,8 @@ import shutil
 import subprocess
 import sys
 
-VERSION = '0.4.4'
-ROOT = Path('/')
+VERSION = '0.5.0'
+ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 STATE = ROOT / 'userdata/system/cozos'
 STATE_FILE = STATE / 'rootfs-splash.json'
 SOURCE = Path(__file__).with_name('assets') / 'cozos-splash-640x480.png'
@@ -125,7 +125,7 @@ def install():
             prior.update({'version': VERSION, 'phase': 'installed',
                           'overlay_result': overlay_output})
             save_state(prior)
-            return 'CozOS 0.4.4 system boot splash is installed and persisted.'
+            return 'CozOS ' + VERSION + ' system boot splash is installed and persisted.'
         if current_sha != prior.get('original_sha256'):
             raise RuntimeError('System splash changed after CozOS prepared it; refusing to overwrite it.')
         info = prior
@@ -165,7 +165,7 @@ def install():
         raise RuntimeError(str(first_error) + '; original image was restored and persisted.')
     info.update({'phase': 'installed', 'overlay_result': overlay_output})
     save_state(info)
-    return ('CozOS 0.4.4 replaced ' + str(target) +
+    return ('CozOS ' + VERSION + ' replaced ' + str(target) +
             ' and saved the KNULLI overlay. Reboot to see it.')
 
 

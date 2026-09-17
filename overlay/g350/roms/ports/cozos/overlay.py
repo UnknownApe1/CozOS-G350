@@ -9,9 +9,9 @@ import re
 import subprocess
 import sys
 
-VERSION = '0.4.4'
-ROOT = Path('/')
-STATE = Path('/userdata/system/cozos')
+VERSION = '0.5.0'
+ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
+STATE = ROOT / 'userdata/system/cozos'
 
 # Conservative G350/RK3326 defaults. These use KNULLI's own public option
 # names, keep native resolutions for demanding systems, and avoid enhancements
@@ -311,7 +311,7 @@ def install_splash(prior):
                               'mode': source.stat().st_mode & 0o777})
         for item in originals:
             (splash_dir / item['name']).unlink()
-    target = splash_dir / 'CozOS-G350-v0.4.4.png'
+    target = splash_dir / ('CozOS-G350-v' + VERSION + '.png')
     atomic(target, payload)
     return {'target': str(target.relative_to(ROOT)),
             'installed_sha256': digest(payload), 'originals': originals,
@@ -401,6 +401,7 @@ def install():
         'CozOS 0.4.1 - Install.sh', 'CozOS 0.4.1 - Status.sh', 'CozOS 0.4.1 - Remove.sh',
         'CozOS 0.4.2 - Install.sh', 'CozOS 0.4.2 - Status.sh', 'CozOS 0.4.2 - Remove.sh',
         'CozOS 0.4.3 - Install.sh', 'CozOS 0.4.3 - Status.sh', 'CozOS 0.4.3 - Remove.sh',
+        'CozOS 0.4.4 - Install.sh', 'CozOS 0.4.4 - Status.sh', 'CozOS 0.4.4 - Remove.sh',
     ):
         try:
             (ports / old_name).unlink()
@@ -461,7 +462,7 @@ def diagnose():
         values = config_values(user_conf, key)
         lines.append(key + '=' + (values[-1] if values else '<missing>'))
     lines += ['\n[CozOS splash]',
-              'present=' + str((ROOT / 'userdata/splash/CozOS-G350-v0.4.4.png').exists()),
+              'present=' + str((ROOT / ('userdata/splash/CozOS-G350-v' + VERSION + '.png')).exists()),
               'boot-enabled=' + str(config_values(read(ROOT / 'boot/knulli-boot.conf'),
                                                    'splash.screen.enabled'))]
     for path in ['userdata/system/configs/multimedia_keys.conf', 'usr/bin/power-button',

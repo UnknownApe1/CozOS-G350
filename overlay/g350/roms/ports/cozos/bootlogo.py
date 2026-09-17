@@ -18,7 +18,7 @@ import sys
 import zlib
 
 VERSION = '0.4.3'
-ROOT = Path('/')
+ROOT = Path(os.environ.get('COZOS_ROOT', '/'))
 STATE = ROOT / 'userdata/system/cozos'
 STATE_FILE = STATE / 'bootlogo.json'
 SOURCE = Path(__file__).with_name('assets') / 'cozos-splash-640x480.png'

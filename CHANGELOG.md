@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0 — Control Center and fast overlay releases
+
+- Replaced three versioned Ports entries with one stable CozOS Control Center.
+- Added install/repair, combined diagnostics, local version information, and
+  checksum-verified complete rollback to the Control Center.
+- Added settings backup and verified restore with strict path allowlisting and
+  an automatic pre-restore safety snapshot.
+- Added a deterministic overlay packager and a short GitHub Actions workflow
+  that tests Python, shell syntax, version consistency, splash dimensions,
+  ZIP integrity, and SHA-256 output without compiling a firmware image.
+- Retained all hardware-tested 0.4.4 G350 behavior and preserved user data.
+
 ## 0.4.4 — tested G350 update baseline
 
 - Replaced the unsupported G350 boot-partition logo attempt with the PNG used

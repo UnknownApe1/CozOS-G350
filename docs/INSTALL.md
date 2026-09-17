@@ -3,20 +3,22 @@
 ## Requirements
 
 - BATLEXP G350.
-- Official KNULLI G350 installation. Version 0.4.4 was hardware-tested on
+- Official KNULLI G350 installation. The 0.5.0 overlay retains the 0.4.4
+  hardware-tested base for
   KNULLI Scarab 2026-05-10.
 - A backup of the working SD card is strongly recommended.
 
 ## Install or upgrade
 
-1. Download `releases/CozOS-G350-Overlay-0.4.4.zip`.
+1. Download `releases/CozOS-G350-Overlay-0.5.0.zip`.
 2. Optionally verify its SHA-256 against the adjacent `.sha256` file.
 3. Extract the ZIP on a computer. Do not flash the ZIP.
 4. Copy the contents of the extracted `roms/ports` directory to the existing
    `roms/ports` directory on KNULLI's writable `SHARE` partition.
 5. Merge/replace the older CozOS files when prompted.
 6. Boot KNULLI and refresh the game list if the new Ports entries are absent.
-7. Run `CozOS 0.4.4 - Install` from Ports.
+7. Run `CozOS Control Center` from Ports, then choose
+   `Install or repair CozOS 0.5.0`.
 8. Wait for completion. Creating the KNULLI rootfs overlay can take several
    minutes. Do not reset or remove power while it is running.
 9. Reboot from the KNULLI menu.
@@ -27,18 +29,31 @@ hashes.
 
 ## Status report
 
-Run `CozOS 0.4.4 - Status` from Ports. Diagnostic output is stored under:
+Open `CozOS Control Center` and choose `Status and diagnostics`. Diagnostic
+output is stored under:
 
 ```text
 /userdata/system/cozos/report.txt
 /userdata/system/cozos/rootfs-splash-status.txt
+/userdata/system/cozos/control-center-report.txt
 ```
 
 ## Normal rollback
 
-Run `CozOS 0.4.4 - Remove` from Ports and reboot. It restores the backed-up
-hotkey configuration, managed settings, prior splash files, and original KNULLI
-system-splash image. A later manual edit is never silently overwritten.
+Open `CozOS Control Center`, choose `Remove CozOS / complete rollback`, confirm,
+and reboot. It restores the backed-up hotkey configuration, managed settings,
+prior splash files, and original KNULLI system-splash image. A later manual
+edit is never silently overwritten.
+
+## Settings backup and restore
+
+The Control Center can back up the supported KNULLI configuration files under
+`/userdata/system/cozos/backups`. Each archive has a manifest and SHA-256 hash
+for every file. Restore accepts only the documented settings paths, verifies
+all hashes before writing, and creates a pre-restore safety backup first.
+
+This utility is for settings. CozOS never moves or deletes ROMs, BIOS files,
+saves, save states, or scraped media. Keep a normal SD-card backup for those.
 
 ## Emergency overlay recovery
 

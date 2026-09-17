@@ -11,12 +11,12 @@ keeps KNULLI as the maintained Linux/emulator base.
 
 ## Download
 
-### [Download CozOS G350 0.4.4](releases/CozOS-G350-Overlay-0.4.4.zip)
+### [Download CozOS G350 0.5.0](releases/CozOS-G350-Overlay-0.5.0.zip)
 
 SHA-256:
 
 ```text
-ccd2a7f741a7bae9addc7c7ecdaaac0757a78de48cf1df48de63a478d84fd630
+dc66e782bfc915efc78fde4807d1f09ec72c2e467bde14f41ab99f7ce2d6b4c4
 ```
 
 Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
@@ -34,6 +34,8 @@ Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 - Preservation of ROMs, BIOS files, saves, save states, scraped media, and
   existing explicit emulator settings.
 - Checksum-verified backups and a complete Remove/rollback command.
+- One **CozOS Control Center** for install/repair, status, settings backups,
+  verified restore, version information, and complete rollback.
 
 ## Install
 
@@ -42,7 +44,8 @@ Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 3. Copy the **contents** of its `roms/ports` folder into the existing
    `roms/ports` folder on KNULLI's `SHARE` partition.
 4. Allow the `cozos` folder and files to merge/replace older versions.
-5. Boot the G350, open **Ports**, and run **CozOS 0.4.4 - Install**.
+5. Boot the G350, open **Ports**, run **CozOS Control Center**, and choose
+   **Install or repair CozOS 0.5.0**.
 6. Wait for the overlay save to finish; do not power off during installation.
 7. Reboot normally through KNULLI.
 
@@ -67,13 +70,15 @@ future work and for upstreamable patches.
 ## Known limitation
 
 The G350 rumble motor activates briefly during early boot. That occurs before
-the current CozOS user-space overlay loads, so 0.4.4 does not change it.
+the current CozOS user-space overlay loads, so 0.5.0 does not change it.
 
 ## Source layout
 
 - `overlay/g350/` — installable update source.
 - `releases/` — tested downloadable packages and checksums.
 - `docs/` — installation, recovery, compatibility, and feature notes.
+- `tools/build_overlay_release.py` — fast, deterministic overlay packaging and
+  validation; it does not compile a firmware image.
 - inherited KNULLI folders — upstream Buildroot/firmware source retained for
   low-level development.
 
