@@ -21,7 +21,7 @@ if [ ! -s "${ACTIVE}" ]; then
     rm -rf "${STAGE}"
     mkdir -p "${STAGE}"
     cp -a "${BUNDLED}/." "${STAGE}/"
-    if [ ! -f "${STAGE}/control_center_060.py" ] || [ ! -f "${STAGE}/updater.py" ]; then
+    if [ ! -f "${STAGE}/main.py" ] || [ ! -f "${STAGE}/updater.py" ]; then
         echo "CozOS bootstrap validation failed. The Ports package is incomplete."
         rm -rf "${STAGE}"
         sleep 10
@@ -35,7 +35,7 @@ fi
 
 VERSION="$(tr -d '\r\n' < "${ACTIVE}")"
 APP="${APPS}/${VERSION}"
-ENTRY="${APP}/control_center_060.py"
+ENTRY="${APP}/main.py"
 if [ ! -f "${ENTRY}" ]; then
     echo "CozOS active version ${VERSION} is incomplete."
     echo "Delete ${ACTIVE} to force a safe bootstrap from the Ports package."
