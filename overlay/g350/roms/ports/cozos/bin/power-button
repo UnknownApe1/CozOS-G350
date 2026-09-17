@@ -1,0 +1,27 @@
+#!/bin/sh
+
+STATE=/var/run/cozos-power-button.held
+LOCK=/var/run/cozos-power-button.lock
+FAKE=/var/run/cozos-fake-suspend.active
+SUSPEND=/userdata/system/cozos/bin/fake-suspend
+
+exec 9>"$LOCK"
+flock -n 9 || exit 0
+
+# A press while fake-suspended wakes immediately.
+if [ -f "$FAKE" ]; then
+    "$SUSPEND" wake
+    exit $?
+fi
+
+: > "$STATE"
+if inotifywait -qq -t 2 -e delete_self "$STATE"; then
+    [ -e "$STATE" ] || "$SUSPEND" sleep
+else
+    if [ -e "$STATE" ]; then
+        command -v knulli-rumble >/dev/null 2>&1 && knulli-rumble 0.2 &
+        knulli-shutdown -s
+    fi
+fi
+
+exit 0
