@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0 — versioned updater and permanent Tools launcher
+
+- Turned the stable Ports Control Center into a one-time bootstrap launcher.
+- Installed Control Center application files under versioned directories in
+  `/userdata/system/cozos/apps` and switched versions only after validation.
+- Added local updates from `SHARE/cozos-updates`, optional online updates from a
+  signed-by-hash release index, progress reporting, persistent update logs, and
+  restart guidance after activation.
+- Added rollback to a retained previous Control Center version without
+  overwriting the working copy during an update.
+- Added SHA-256 validation, manifest validation, ZIP traversal rejection, and
+  regression tests proving a tampered update cannot switch the active version.
+- Fixed splash upgrades so a checksum-verified older CozOS image can be
+  replaced by the new release while preserving the original KNULLI splash for
+  full rollback.
+- Added deterministic packaging for both the full overlay ZIP and smaller
+  versioned update ZIP, plus the online `index.json` release metadata.
+
 ## 0.5.3 — G350 face-button labels
 
 - Enabled SDL label-based face-button reporting only for the Control Center.
