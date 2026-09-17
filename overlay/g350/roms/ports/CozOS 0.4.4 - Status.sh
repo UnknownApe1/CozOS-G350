@@ -6,16 +6,13 @@ if ! command -v python3 >/dev/null 2>&1; then
     sleep 10
     exit 1
 fi
-
 python3 "${HERE}/cozos/overlay.py" status
 overlay_result=$?
-echo
-python3 "${HERE}/cozos/bootlogo.py" status
-logo_result=$?
-
+python3 "${HERE}/cozos/rootsplash.py" status
+splash_result=$?
 result=$overlay_result
-if [ "$logo_result" -ne 0 ]; then
-    result=$logo_result
+if [ "$result" -eq 0 ] && [ "$splash_result" -ne 0 ]; then
+    result=$splash_result
 fi
-sleep 8
+sleep 10
 exit "$result"

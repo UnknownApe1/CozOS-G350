@@ -1,28 +1,28 @@
 #!/usr/bin/env python3
-"""CozOS G350 boot-logo manager for KNULLI RK3326 images.
+"""CozOS G350 Rockchip boot-image manager.
 
-The G350 RK3326 build removes KNULLI's normal userdata splash services, while
-its early boot progress path reads /boot/bootlogo.bmp.  This helper converts
-the packaged 640x480 PNG to a conservative 24-bit BMP, backs up the original
-boot logo by checksum, installs the CozOS image, and restores the exact original
-on removal.  It intentionally does not touch ROMs, saves, DTBs, kernels, or
-bootloader binaries.
+KNULLI's Rockchip progress-bar code loads /boot/logo_<width>x<height>.bmp,
+where width/height come from /dev/fb0. On the G350 this is normally
+/boot/logo_640x480.bmp. This helper installs the packaged CozOS artwork there,
+backs up an existing image when present, and safely restores/removes it.
 """
 import hashlib
+import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import struct
 import subprocess
 import sys
 import zlib
 
-VERSION = '0.4.1'
+VERSION = '0.4.3'
 ROOT = Path('/')
 STATE = ROOT / 'userdata/system/cozos'
 STATE_FILE = STATE / 'bootlogo.json'
-TARGET = ROOT / 'boot/bootlogo.bmp'
 SOURCE = Path(__file__).with_name('assets') / 'cozos-splash-640x480.png'
+DEFAULT_SIZE = (640, 480)
 
 
 def digest(data):
@@ -39,6 +39,58 @@ def atomic(path, data):
     os.replace(temp, path)
 
 
+def read_text(path):
+    try:
+        return path.read_text(errors='replace').strip()
+    except OSError:
+        return ''
+
+
+def framebuffer_size():
+    """Return active xres/yres, matching KNULLI progressbar_rk.cpp."""
+    # FBIOGET_VSCREENINFO is exactly what KNULLI's Rockchip progressbar uses.
+    # The first four uint32 fields are xres, yres, xres_virtual, yres_virtual.
+    if ROOT == Path('/'):
+        try:
+            with open('/dev/fb0', 'rb', buffering=0) as fb:
+                buf = bytearray(160)
+                fcntl.ioctl(fb.fileno(), 0x4600, buf, True)
+                xres, yres, _, _ = struct.unpack_from('=IIII', buf, 0)
+                if xres > 0 and yres > 0:
+                    return (xres, yres), 'FBIOGET_VSCREENINFO'
+        except OSError:
+            pass
+
+        # fbset is a secondary source for active geometry when installed.
+        try:
+            result = subprocess.run(['fbset', '-fb', '/dev/fb0'], capture_output=True,
+                                    text=True, timeout=3, check=False)
+            match = re.search(r'geometry\s+(\d+)\s+(\d+)\s+', result.stdout)
+            if match:
+                size = (int(match.group(1)), int(match.group(2)))
+                if size[0] > 0 and size[1] > 0:
+                    return size, 'fbset'
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    # virtual_size can be taller than the visible panel on double-buffered
+    # framebuffers, so use it only if it is the known G350 640x480 geometry.
+    text = read_text(ROOT / 'sys/class/graphics/fb0/virtual_size')
+    match = re.search(r'(\d+)\s*,\s*(\d+)', text)
+    if match:
+        size = (int(match.group(1)), int(match.group(2)))
+        if size == DEFAULT_SIZE:
+            return size, 'sysfs virtual_size'
+
+    # overlay.py hardware-gates this package to G350/BATLEXP. Its panel and the
+    # packaged artwork are 640x480, so this is a safe final device fallback.
+    return DEFAULT_SIZE, 'G350 fallback'
+
+
+def target_for_size(size):
+    return ROOT / 'boot' / f'logo_{size[0]}x{size[1]}.bmp'
+
+
 def paeth(a, b, c):
     p = a + b - c
     pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
@@ -49,7 +101,7 @@ def paeth(a, b, c):
     return c
 
 
-def png_to_bmp24(payload):
+def png_to_bmp24(payload, expected_size):
     """Decode a normal non-interlaced 8-bit PNG and return a 24-bit BMP."""
     if not payload.startswith(b'\x89PNG\r\n\x1a\n'):
         raise RuntimeError('Packaged CozOS artwork is not a PNG.')
@@ -77,8 +129,10 @@ def png_to_bmp24(payload):
         elif kind == b'IEND':
             break
         pos += 12 + length
-    if (width, height) != (640, 480):
-        raise RuntimeError('CozOS boot artwork must be exactly 640x480.')
+    if (width, height) != tuple(expected_size):
+        raise RuntimeError(
+            f'CozOS boot artwork is {width}x{height}, but framebuffer is '
+            f'{expected_size[0]}x{expected_size[1]}; refusing to stretch it.')
     if bit_depth != 8 or interlace != 0:
         raise RuntimeError('CozOS boot artwork must be 8-bit and non-interlaced.')
     channels = {0: 1, 2: 3, 3: 1, 4: 2, 6: 4}.get(color_type)
@@ -105,18 +159,18 @@ def png_to_bmp24(payload):
             up = prior[x]
             upper_left = prior[x - channels] if x >= channels else 0
             if filter_type == 0:
-                result = value
+                value += 0
             elif filter_type == 1:
-                result = value + left
+                value += left
             elif filter_type == 2:
-                result = value + up
+                value += up
             elif filter_type == 3:
-                result = value + ((left + up) >> 1)
+                value += (left + up) >> 1
             elif filter_type == 4:
-                result = value + paeth(left, up, upper_left)
+                value += paeth(left, up, upper_left)
             else:
                 raise RuntimeError('Unsupported PNG filter type: ' + str(filter_type))
-            recon[x] = result & 0xff
+            recon[x] = value & 0xff
         prior = recon
         rgb = bytearray()
         if color_type == 0:
@@ -137,6 +191,7 @@ def png_to_bmp24(payload):
             for i in range(0, len(recon), 4):
                 rgb.extend(recon[i:i + 3])
         rows.append(bytes(rgb))
+
     stride = ((width * 3 + 3) // 4) * 4
     pixel_size = stride * height
     header = (
@@ -161,19 +216,19 @@ def remount_boot(writable):
     subprocess.run(['mount', '-o', 'remount,' + mode, '/boot'], check=True)
 
 
-def write_boot_target(data, mode=0o644):
+def write_boot_target(target, data, mode=0o644):
     remount_boot(True)
     try:
-        atomic(TARGET, data)
-        TARGET.chmod(mode)
+        atomic(target, data)
+        target.chmod(mode)
     finally:
         remount_boot(False)
 
 
-def remove_boot_target():
+def delete_boot_target(target):
     remount_boot(True)
     try:
-        TARGET.unlink(missing_ok=True)
+        target.unlink(missing_ok=True)
     finally:
         remount_boot(False)
 
@@ -192,91 +247,146 @@ def save_state(info):
 def install():
     if not SOURCE.exists():
         raise RuntimeError('Packaged CozOS boot artwork is missing: ' + str(SOURCE))
-    bmp = png_to_bmp24(SOURCE.read_bytes())
+    size, size_source = framebuffer_size()
+    target = target_for_size(size)
+    payload = SOURCE.read_bytes()
+    bmp = png_to_bmp24(payload, size)
     installed_sha = digest(bmp)
     prior = load_state()
+
+    # Migrate a stale failed 0.4.2 record only if it never changed its old target.
+    if prior and prior.get('target') == '/boot/bootlogo.bmp':
+        old_target = ROOT / 'boot/bootlogo.bmp'
+        old_installed = prior.get('installed_sha256')
+        if old_target.exists() and old_installed and digest(old_target.read_bytes()) == old_installed:
+            raise RuntimeError('A previous CozOS build actually modified /boot/bootlogo.bmp; run its Remove first.')
+        STATE_FILE.unlink()
+        prior = None
+
     if prior:
-        current_sha = digest(TARGET.read_bytes()) if TARGET.exists() else None
-        if current_sha == installed_sha:
-            if prior.get('phase') != 'installed':
-                prior['phase'] = 'installed'
-                save_state(prior)
-            return 'CozOS 0.4.1 boot logo is already installed.'
-        if prior.get('phase') == 'prepared' and current_sha == prior.get('original_sha256'):
-            mode = int(prior.get('original_mode', 0o644))
-            write_boot_target(bmp, mode)
-            prior['installed_sha256'] = installed_sha
+        prior_target = Path(prior['target'])
+        current_sha = digest(prior_target.read_bytes()) if prior_target.exists() else None
+        if (prior_target == target and current_sha == installed_sha):
+            prior['version'] = VERSION
             prior['phase'] = 'installed'
+            prior['resolution_source'] = size_source
             save_state(prior)
-            return 'CozOS 0.4.1 boot logo installed; reboot to test it.'
-        raise RuntimeError('bootlogo.bmp changed after CozOS prepared it; refusing to overwrite that newer edit.')
-    if not TARGET.exists():
-        raise RuntimeError('/boot/bootlogo.bmp is missing; no boot files were changed.')
-    original = TARGET.read_bytes()
-    original_sha = digest(original)
-    original_mode = TARGET.stat().st_mode & 0o777
-    backup = STATE / ('bootlogo-original-' + original_sha[:12] + '.bmp')
-    if backup.exists():
-        if digest(backup.read_bytes()) != original_sha:
-            raise RuntimeError('Existing boot-logo backup has an unexpected checksum.')
-    else:
-        atomic(backup, original)
-        backup.chmod(0o600)
+            return f'CozOS {VERSION} boot image is already installed at {target}.'
+        if prior_target != target:
+            raise RuntimeError('Framebuffer/boot-logo target changed since the previous install; run Remove before reinstalling.')
+        if prior.get('phase') == 'prepared':
+            original_sha = prior.get('original_sha256')
+            if (prior.get('original_exists') and current_sha == original_sha) or (
+                    not prior.get('original_exists') and current_sha is None):
+                mode = int(prior.get('original_mode', 0o644))
+                write_boot_target(target, bmp, mode)
+                prior.update({'version': VERSION, 'installed_sha256': installed_sha,
+                              'phase': 'installed', 'resolution_source': size_source})
+                save_state(prior)
+                return f'CozOS {VERSION} boot image installed at {target}; reboot to test it.'
+        raise RuntimeError(target.name + ' changed after CozOS prepared it; refusing to overwrite that newer edit.')
+
+    original_exists = target.exists()
+    original_sha = None
+    original_mode = 0o644
+    backup = None
+    if original_exists:
+        original = target.read_bytes()
+        original_sha = digest(original)
+        original_mode = target.stat().st_mode & 0o777
+        backup = STATE / ('boot-logo-original-' + original_sha[:12] + '.bmp')
+        if backup.exists():
+            if digest(backup.read_bytes()) != original_sha:
+                raise RuntimeError('Existing boot-image backup has an unexpected checksum.')
+        else:
+            atomic(backup, original)
+            backup.chmod(0o600)
+
     info = {
         'version': VERSION,
         'phase': 'prepared',
-        'target': str(TARGET),
-        'backup': str(backup),
-        'original_exists': True,
+        'target': str(target),
+        'width': size[0],
+        'height': size[1],
+        'resolution_source': size_source,
+        'backup': str(backup) if backup else None,
+        'original_exists': original_exists,
         'original_sha256': original_sha,
         'original_mode': original_mode,
-        'source_png_sha256': digest(SOURCE.read_bytes()),
+        'source_png_sha256': digest(payload),
         'installed_sha256': installed_sha,
-        'format': 'BMP 640x480 24-bit',
+        'format': f'BMP {size[0]}x{size[1]} 24-bit uncompressed',
     }
-    # Persist rollback information before changing /boot, so an interrupted
-    # install can still distinguish the original from the CozOS replacement.
+    # Store rollback metadata first. If power is lost during /boot write, Remove
+    # can still determine whether it should restore or delete the target.
     save_state(info)
-    write_boot_target(bmp, original_mode)
-    if digest(TARGET.read_bytes()) != installed_sha:
-        raise RuntimeError('Installed bootlogo.bmp failed checksum verification.')
+    write_boot_target(target, bmp, original_mode)
+    if not target.exists() or digest(target.read_bytes()) != installed_sha:
+        raise RuntimeError('Installed ' + target.name + ' failed checksum verification.')
     info['phase'] = 'installed'
     save_state(info)
-    return 'CozOS 0.4.1 boot logo installed; reboot to test the real RK3326 boot path.'
+    action = 'replaced' if original_exists else 'created'
+    return f'CozOS {VERSION} boot image {action} {target}; reboot to test it.'
 
 
 def remove():
     info = load_state()
     if not info:
-        return 'No CozOS boot-logo installation record found; bootlogo.bmp was not changed.'
-    backup = Path(info['backup'])
-    if not backup.exists():
-        raise RuntimeError('Original boot-logo backup is missing; refusing to alter /boot.')
-    original = backup.read_bytes()
-    if digest(original) != info.get('original_sha256'):
-        raise RuntimeError('Original boot-logo backup checksum mismatch; refusing to alter /boot.')
-    if TARGET.exists():
-        current_sha = digest(TARGET.read_bytes())
-        installed_sha = info.get('installed_sha256')
-        if current_sha != installed_sha:
-            # If installation stopped before replacement, the original is
-            # already live and there is nothing destructive to undo.
-            if info.get('phase') == 'prepared' and current_sha == info.get('original_sha256'):
-                STATE_FILE.unlink()
-                return 'Original G350 boot logo is already active.'
-            raise RuntimeError('bootlogo.bmp was edited after CozOS; refusing to overwrite that newer file.')
-    write_boot_target(original, int(info.get('original_mode', 0o644)))
-    if digest(TARGET.read_bytes()) != info.get('original_sha256'):
-        raise RuntimeError('Restored bootlogo.bmp failed checksum verification.')
+        return 'No CozOS boot-image installation record found; /boot was not changed by this module.'
+    target = Path(info['target'])
+    installed_sha = info.get('installed_sha256')
+    current_sha = digest(target.read_bytes()) if target.exists() else None
+
+    if info.get('phase') == 'prepared':
+        # Installation may have stopped before /boot changed.
+        if info.get('original_exists') and current_sha == info.get('original_sha256'):
+            STATE_FILE.unlink()
+            return 'Original G350 boot image is already active.'
+        if not info.get('original_exists') and current_sha is None:
+            STATE_FILE.unlink()
+            return 'No pre-existing boot image and CozOS target was never created.'
+
+    if current_sha != installed_sha:
+        raise RuntimeError(target.name + ' was edited after CozOS; refusing to overwrite/delete that newer file.')
+
+    if info.get('original_exists'):
+        backup_name = info.get('backup')
+        if not backup_name:
+            raise RuntimeError('Original boot-image backup path is missing; refusing to alter /boot.')
+        backup = Path(backup_name)
+        if not backup.exists():
+            raise RuntimeError('Original boot-image backup is missing; refusing to alter /boot.')
+        original = backup.read_bytes()
+        if digest(original) != info.get('original_sha256'):
+            raise RuntimeError('Original boot-image backup checksum mismatch; refusing to alter /boot.')
+        write_boot_target(target, original, int(info.get('original_mode', 0o644)))
+        if digest(target.read_bytes()) != info.get('original_sha256'):
+            raise RuntimeError('Restored boot image failed checksum verification.')
+        result = 'Original G350 boot image restored and verified.'
+    else:
+        delete_boot_target(target)
+        if target.exists():
+            raise RuntimeError('Could not remove CozOS-created boot image.')
+        result = 'CozOS-created G350 boot image removed; no original file existed.'
+
     STATE_FILE.unlink()
-    return 'Original G350 bootlogo.bmp restored and verified.'
+    return result
 
 
 def status():
+    size, size_source = framebuffer_size()
+    detected_target = target_for_size(size)
     info = load_state()
-    lines = ['CozOS 0.4.1 boot-logo status', 'target=' + str(TARGET)]
-    if TARGET.exists():
-        data = TARGET.read_bytes()
+    target = Path(info['target']) if info and info.get('target') else detected_target
+    candidates = sorted((ROOT / 'boot').glob('logo_*x*.bmp')) if (ROOT / 'boot').exists() else []
+    lines = [f'CozOS {VERSION} Rockchip boot-image status',
+             f'framebuffer={size[0]}x{size[1]}',
+             'resolution-source=' + size_source,
+             'detected-target=' + str(detected_target),
+             'managed-target=' + str(target),
+             'logo-candidates=' + (', '.join(str(p) for p in candidates) if candidates else '<none>')]
+    if target.exists():
+        data = target.read_bytes()
         lines += ['target-present=True', 'target-sha256=' + digest(data),
                   'target-size=' + str(len(data))]
     else:
@@ -284,14 +394,21 @@ def status():
     if not info:
         lines += ['managed=False', 'rollback-record=missing']
     else:
-        backup = Path(info['backup'])
-        lines += ['managed=True', 'phase=' + str(info.get('phase')),
+        lines += ['managed=True', 'version=' + str(info.get('version')),
+                  'phase=' + str(info.get('phase')),
                   'expected-cozos-sha256=' + str(info.get('installed_sha256')),
-                  'original-sha256=' + str(info.get('original_sha256')),
-                  'backup=' + str(backup), 'backup-present=' + str(backup.exists())]
-        if backup.exists():
-            lines += ['backup-sha256=' + digest(backup.read_bytes()),
-                      'backup-verified=' + str(digest(backup.read_bytes()) == info.get('original_sha256'))]
+                  'original-existed=' + str(info.get('original_exists')),
+                  'original-sha256=' + str(info.get('original_sha256'))]
+        backup_name = info.get('backup')
+        if backup_name:
+            backup = Path(backup_name)
+            lines += ['backup=' + str(backup), 'backup-present=' + str(backup.exists())]
+            if backup.exists():
+                backup_sha = digest(backup.read_bytes())
+                lines += ['backup-sha256=' + backup_sha,
+                          'backup-verified=' + str(backup_sha == info.get('original_sha256'))]
+        else:
+            lines += ['backup=<not-needed>']
     text = '\n'.join(lines) + '\n'
     STATE.mkdir(parents=True, exist_ok=True)
     atomic(STATE / 'bootlogo-status.txt', text.encode())
@@ -303,18 +420,16 @@ def main():
     action = sys.argv[1] if len(sys.argv) > 1 else 'status'
     try:
         if action == 'install':
-            message = install()
-            print(message)
+            print(install())
             return 0
         if action == 'remove':
-            message = remove()
-            print(message)
+            print(remove())
             return 0
         if action == 'status':
             return status()
         raise RuntimeError('Unknown action: ' + action)
     except Exception as exc:
-        message = 'CozOS boot-logo stopped: ' + str(exc)
+        message = 'CozOS boot-image stopped: ' + str(exc)
         STATE.mkdir(parents=True, exist_ok=True)
         atomic(STATE / 'bootlogo-last-action.txt', message.encode())
         print(message)

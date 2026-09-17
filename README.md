@@ -1,33 +1,84 @@
-[![Activity](https://img.shields.io/github/commit-activity/m/knulli-cfw/distribution)](https://github.com/knulli-cfw/distribution)
-[![PR](https://img.shields.io/github/issues-pr-closed/knulli-cfw/distribution)](https://github.com/knulli-cfw/distribution)
-[![Stars](https://img.shields.io/github/stars/knulli-cfw?style=social)](https://github.com/knulli-cfw/distribution)
-[![Forks](https://img.shields.io/github/forks/knulli-cfw/distribution?style=social)](https://github.com/knulli-cfw/distribution)
-[![Website](https://img.shields.io/website?down_color=red&down_message=down&up_color=green&up_message=up&url=https%3A%2F%2Fwww.knulli.org)](https://knulli.org)
-[![Discord Server](https://img.shields.io/discord/357518249883205632.svg)](https://discord.gg/HXPS3DAeeB)
+# CozOS G350
 
-## :video_game::penguin: Knulli CFW :video_game::penguin:
-Knulli CFW is a fork of the open-source and completely free retro-gaming distribution batocera that can be copied to an SD card with the aim of improving many of the emulation handhelds on the market that usually ship with incomplete and often non GPL compliant software. It supports [many emulators and game engines](https://www.batocera.org/compatibility.php) out of the box. 
+**CozOS is a tested BATLEXP G350 enhancement pack for official KNULLI.**
 
-## Get information on the project
+It is not currently a complete replacement firmware image. Install the official
+KNULLI G350 image first, then copy the CozOS update to the `SHARE` partition and
+run it from Ports. This approach is faster to test, easier to roll back, and
+keeps KNULLI as the maintained Linux/emulator base.
 
- - :globe_with_meridians: Browse our [website](https://knulli.org) for general information (Downloads coming soon)
- - :memo: Documentation is available on our [wiki](https://knulli.org) and frequently updated
- - :speech_balloon: Discuss any topic with the community on our [Discord Server](https://discord.gg/HXPS3DAeeB)
+## Download
 
-## Do you need help with KNULLI?
+### [Download CozOS G350 0.4.4](releases/CozOS-G350-Overlay-0.4.4.zip)
 
- - :sos: The most effective way is to join our [Discord Server](https://discord.gg/HXPS3DAeeB) and go to the \#questions channel
+SHA-256:
 
-## How can you help Knulli?
+```text
+ccd2a7f741a7bae9addc7c7ecdaaac0757a78de48cf1df48de63a478d84fd630
+```
 
- - :wrench: If you want to help with development, [we accept PRs](https://makeapullrequest.com/) -- anyone is welcome, we embrace the [Bazaar development principles](https://en.wikipedia.org/wiki/The_Cathedral_and_the_Bazaar)
+Tested on a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 
-## Directory navigation
+## What CozOS adds
 
- - `board` Platform-specific build configuration. This is where to include special patches/configuration files needed to have particular components work on a particular platform. It is instead encouraged to apply patches at the location of the package itself, but this may not always be possible.
- - `buildroot` Buildroot, the tool used to create the final compiled images. For newcomers, you can safely ignore this folder. Compilation instructions can be found [on the wiki](https://wiki.batocera.org/compile_knulli.linux).
- - `configs` Build flags, which define what components will be built with your image depending on your chose architecture. If you're trying to port Batocera to a new architecture (device, platform, new bit mode, etc.) this is the file you'll need to edit. More information on [the build configuration section on the buildroot compiling page](https://wiki.batocera.org/knulli.linux_buildroot_modifications#define_your_configuration).
- - `package` The "meat and potatoes" of Batocera. This is where the majority of emulator data, config generators, core packages, system utilities, etc. all go into. This is the friendliest place to start dev-work for new devs, as most of it is handled by Python and Makefile.
- - `scripts` Various miscellanous scripts that handle aspects external to Batocera, such as the report data sent to the [compatibility page](https://batocera.org/compatibility.php) or info about the Bezel Project.
+- Working `FN + Volume Up/Down` brightness controls.
+- Safe short-power-button screen-off/wake behavior for the G350 build where
+  normal suspend shut the device down instead of resuming.
+- Hold Power for about two seconds for a normal shutdown.
+- Automatic extended idle mode uses shutdown instead of broken suspend.
+- G350-oriented emulator/core defaults and performance profiles.
+- Conservative scaling, latency, audio, and frame-pacing defaults.
+- A working CozOS boot splash using KNULLI's rootfs overlay mechanism.
+- Preservation of ROMs, BIOS files, saves, save states, scraped media, and
+  existing explicit emulator settings.
+- Checksum-verified backups and a complete Remove/rollback command.
 
-A cheatsheet of notable files/folders can be found [on the wiki](https://wiki.batocera.org/notable_files).
+## Install
+
+1. Install and boot the official KNULLI G350 image at least once.
+2. Download and extract the ZIP above.
+3. Copy the **contents** of its `roms/ports` folder into the existing
+   `roms/ports` folder on KNULLI's `SHARE` partition.
+4. Allow the `cozos` folder and files to merge/replace older versions.
+5. Boot the G350, open **Ports**, and run **CozOS 0.4.4 - Install**.
+6. Wait for the overlay save to finish; do not power off during installation.
+7. Reboot normally through KNULLI.
+
+You do not need to uninstall an older CozOS version before upgrading.
+
+See [the full installation and recovery guide](docs/INSTALL.md).
+
+## Project direction
+
+The supported path is now:
+
+```text
+Official KNULLI G350 image + CozOS G350 update pack
+```
+
+We are not spending normal development time rebuilding the entire KNULLI image
+for every CozOS change. A full image may return later if CozOS needs kernel,
+device-tree, bootloader, or driver changes that cannot be delivered safely as
+an overlay. The inherited KNULLI/Buildroot source remains in this fork for that
+future work and for upstreamable patches.
+
+## Known limitation
+
+The G350 rumble motor activates briefly during early boot. That occurs before
+the current CozOS user-space overlay loads, so 0.4.4 does not change it.
+
+## Source layout
+
+- `overlay/g350/` — installable update source.
+- `releases/` — tested downloadable packages and checksums.
+- `docs/` — installation, recovery, compatibility, and feature notes.
+- inherited KNULLI folders — upstream Buildroot/firmware source retained for
+  low-level development.
+
+## Upstream and license
+
+CozOS is based on and intended to complement
+[KNULLI](https://github.com/knulli-cfw/knulli-linux). Individual components
+retain their upstream licenses. See `COPYING` and `overlay/g350/LICENSE.txt`.
+
+This is a community project and is not an official KNULLI release.
