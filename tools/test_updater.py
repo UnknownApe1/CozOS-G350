@@ -18,7 +18,7 @@ def load(root):
     return module
 
 
-def make_update(path,version='0.6.2',extra=None,corrupt_manifest=False,unsafe=False):
+def make_update(path,version='0.6.3',extra=None,corrupt_manifest=False,unsafe=False):
     files={
         'app/main.py':b'print("CozOS")\n',
         'app/updater.py':b'# updater\n',
@@ -38,7 +38,7 @@ def make_update(path,version='0.6.2',extra=None,corrupt_manifest=False,unsafe=Fa
     return path
 
 
-class Updater062Tests(unittest.TestCase):
+class Updater063Tests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.root=Path(self.temp.name)
@@ -47,7 +47,7 @@ class Updater062Tests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def seed_active(self,version='0.6.1'):
+    def seed_active(self,version='0.6.2'):
         target=self.updater.APPS/version
         target.mkdir(parents=True)
         (target/'main.py').write_text('old main\n')
@@ -57,26 +57,26 @@ class Updater062Tests(unittest.TestCase):
 
     def test_upgrade_and_rollback_preserve_previous_version(self):
         self.seed_active()
-        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.2.zip')
+        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.3.zip')
         version,previous=self.updater.install_package(package)
-        self.assertEqual((version,previous),('0.6.2','0.6.1'))
-        self.assertEqual(self.updater.current_version(),'0.6.2')
-        self.assertTrue((self.updater.APPS/'0.6.1/main.py').is_file())
-        self.assertEqual(self.updater.rollback(),'0.6.1')
+        self.assertEqual((version,previous),('0.6.3','0.6.2'))
+        self.assertEqual(self.updater.current_version(),'0.6.3')
+        self.assertTrue((self.updater.APPS/'0.6.2/main.py').is_file())
+        self.assertEqual(self.updater.rollback(),'0.6.2')
 
     def test_same_version_install_is_a_repair(self):
-        self.seed_active('0.6.2')
-        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.2.zip')
+        self.seed_active('0.6.3')
+        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.3.zip')
         version,previous=self.updater.install_package(package)
-        self.assertEqual((version,previous),('0.6.2',''))
-        self.assertEqual((self.updater.APPS/'0.6.2/main.py').read_text(),'print("CozOS")\n')
-        self.assertFalse((self.updater.APPS/'0.6.2.replaced').exists())
+        self.assertEqual((version,previous),('0.6.3',''))
+        self.assertEqual((self.updater.APPS/'0.6.3/main.py').read_text(),'print("CozOS")\n')
+        self.assertFalse((self.updater.APPS/'0.6.3.replaced').exists())
 
     def test_scans_ports_and_share_root(self):
-        ports=make_update(self.root/'userdata/roms/ports/CozOS-G350-Update-0.6.2.ZIP')
+        ports=make_update(self.root/'userdata/roms/ports/CozOS-G350-Update-0.6.3.ZIP')
         self.assertEqual(self.updater.newest_local(),ports)
         ports.unlink()
-        share=make_update(self.root/'userdata/CozOS-G350-Update-0.6.2.zip')
+        share=make_update(self.root/'userdata/CozOS-G350-Update-0.6.3.zip')
         self.assertEqual(self.updater.newest_local(),share)
 
     def test_diagnostics_explain_rejected_zip(self):
@@ -89,17 +89,17 @@ class Updater062Tests(unittest.TestCase):
         self.assertIn('File is not a zip file',report)
 
     def test_rejects_undeclared_payload(self):
-        path=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.2.zip',extra='surprise.py')
+        path=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.3.zip',extra='surprise.py')
         with self.assertRaisesRegex(RuntimeError,'undeclared package files'):
             self.updater.inspect_package(path)
 
     def test_failed_repair_keeps_active_copy(self):
-        self.seed_active('0.6.2')
-        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.2.zip',corrupt_manifest=True)
+        self.seed_active('0.6.3')
+        package=make_update(self.updater.UPDATES/'CozOS-G350-Update-0.6.3.zip',corrupt_manifest=True)
         with self.assertRaisesRegex(RuntimeError,'Checksum failed'):
             self.updater.install_package(package)
-        self.assertEqual(self.updater.current_version(),'0.6.2')
-        self.assertEqual((self.updater.APPS/'0.6.2/main.py').read_text(),'old main\n')
+        self.assertEqual(self.updater.current_version(),'0.6.3')
+        self.assertEqual((self.updater.APPS/'0.6.3/main.py').read_text(),'old main\n')
 
     def test_path_traversal_is_rejected(self):
         path=make_update(self.root/'unsafe.zip',unsafe=True)
