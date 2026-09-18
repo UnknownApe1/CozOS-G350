@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.2 — updater reliability and diagnostics
+
+- Searches `SHARE/cozos-updates`, `SHARE/roms/ports`, and the SHARE root for
+  local CozOS update ZIPs without recursively scanning ROM libraries.
+- Reports every searched location, valid package, and exact rejection reason in
+  Control Center diagnostics instead of returning only “no update found.”
+- Supports same-version repair and makes active-directory replacement
+  rollback-safe if the final filesystem move fails.
+- Rejects packaged app files that are absent from the signed-by-hash manifest.
+- Adds regression coverage for discovery, corrupt packages, repair, upgrade,
+  version rollback, traversal rejection, launcher bootstrap, and splash safety.
+
 ## 0.6.1 — permanent Tools Control Center
 
 - Adds a permanent `Tools → CozOS Control Center` launcher and uses Ports only

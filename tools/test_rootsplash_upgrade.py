@@ -25,17 +25,14 @@ class RootSplashUpgradeTests(unittest.TestCase):
             try:
                 spec=importlib.util.spec_from_file_location('rootsplash_060_test',MODULE)
                 mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-            finally:
-                sys.path.remove(str(APP))
+            finally: sys.path.remove(str(APP))
             prior={'target':str(target),'backup':str(backup),'original_sha256':original_sha,
                    'installed_sha256':old_sha,'original_mode':0o644,'phase':'installed','version':'0.4.3'}
-            mod.legacy.SOURCE=source
-            mod.legacy.select_target=lambda:(target,'640,480')
-            mod.legacy.load_state=lambda:dict(prior)
-            mod.legacy.save_state=lambda info:saved.append(dict(info))
+            mod.legacy.SOURCE=source; mod.legacy.select_target=lambda:(target,'640,480')
+            mod.legacy.load_state=lambda:dict(prior); mod.legacy.save_state=lambda info:saved.append(dict(info))
             mod.legacy.save_overlay=lambda:'test-overlay-saved'
             message=mod.install()
-            self.assertIn('0.6.1',message)
+            self.assertIn('0.6.2',message)
             self.assertEqual(target.read_bytes(),new)
             self.assertEqual(saved[-1]['original_sha256'],original_sha)
             self.assertEqual(saved[-1]['installed_sha256'],hashlib.sha256(new).hexdigest())
@@ -48,12 +45,10 @@ class RootSplashUpgradeTests(unittest.TestCase):
             try:
                 spec=importlib.util.spec_from_file_location('rootsplash_060_manual_test',MODULE)
                 mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-            finally:
-                sys.path.remove(str(APP))
+            finally: sys.path.remove(str(APP))
             mod.legacy.SOURCE=source; mod.legacy.select_target=lambda:(target,'640,480')
             mod.legacy.load_state=lambda:{'target':str(target),'backup':str(backup),
                 'original_sha256':'1'*64,'installed_sha256':'2'*64,'original_mode':0o644}
-            with self.assertRaisesRegex(RuntimeError,'outside CozOS'):
-                mod.install()
+            with self.assertRaisesRegex(RuntimeError,'outside CozOS'): mod.install()
 
 if __name__=='__main__': unittest.main()

@@ -2,12 +2,13 @@
 import hashlib, json, os, shutil, urllib.request, zipfile
 from pathlib import Path, PurePosixPath
 
-VERSION='0.6.1'
+VERSION='0.6.2'
 ROOT=Path(os.environ.get('COZOS_ROOT','/'))
 STATE=ROOT/'userdata/system/cozos'
 APPS=STATE/'apps'
 ACTIVE=STATE/'active-version'
 UPDATES=ROOT/'userdata/cozos-updates'
+UPDATE_DIRS=(UPDATES,ROOT/'userdata/roms/ports',ROOT/'userdata')
 LOGS=STATE/'logs'
 INDEX_URL=os.environ.get('COZOS_INDEX_URL','https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/index.json')
 REQUIRED=('main.py','updater.py')
@@ -54,6 +55,15 @@ def inspect_package(path):
         if manifest.get('version')!=version: raise RuntimeError('Manifest version mismatch')
         files=manifest.get('files')
         if not isinstance(files,dict): raise RuntimeError('Manifest files table is invalid')
+        packaged={name.removeprefix('cozos-update/') for name in names
+                  if name.startswith('cozos-update/app/') and not name.endswith('/')}
+        declared=set(files)
+        if packaged!=declared:
+            missing=sorted(packaged-declared); extra=sorted(declared-packaged)
+            details=[]
+            if missing: details.append('undeclared package files: '+', '.join(missing))
+            if extra: details.append('manifest entries without package files: '+', '.join(extra))
+            raise RuntimeError('Manifest file list mismatch ('+'; '.join(details)+')')
         for rel, expected in files.items():
             p=PurePosixPath(rel)
             if p.is_absolute() or '..' in p.parts or not rel.startswith('app/'):
@@ -85,13 +95,19 @@ def install_package(path, expected_sha256=None, cb=None):
     for name in REQUIRED:
         if not (staging/name).is_file(): raise RuntimeError('Staging validation failed: '+name)
     (staging/'VERSION').write_text(version+'\n')
-    if target.exists(): shutil.rmtree(target)
-    os.replace(staging,target)
+    replaced=APPS/(version+'.replaced')
+    shutil.rmtree(replaced,ignore_errors=True)
+    if target.exists(): os.replace(target,replaced)
+    try: os.replace(staging,target)
+    except Exception:
+        if replaced.exists() and not target.exists(): os.replace(replaced,target)
+        raise
+    shutil.rmtree(replaced,ignore_errors=True)
     progress(cb,80,'Installed versioned app files')
     previous=current_version()
     tmp=ACTIVE.with_suffix('.tmp'); tmp.write_text(version+'\n'); os.replace(tmp,ACTIVE)
     progress(cb,100,'Activated CozOS '+version)
-    return version,previous
+    return version,(previous if previous!=version else '')
 
 def rollback(cb=None):
     active=current_version()
@@ -103,17 +119,54 @@ def rollback(cb=None):
     progress(cb,100,'Rolled back to CozOS '+target)
     return target
 
+def local_packages():
+    """Find update ZIPs only in documented, shallow SHARE locations."""
+    found=[]; seen=set()
+    for directory in UPDATE_DIRS:
+        if not directory.is_dir(): continue
+        try: entries=directory.iterdir()
+        except OSError: continue
+        for path in entries:
+            name=path.name.lower()
+            if not path.is_file() or path.suffix.lower()!='.zip' or not name.startswith('cozos-g350-update-'): continue
+            try: key=str(path.resolve())
+            except OSError: key=str(path)
+            if key not in seen: seen.add(key); found.append(path)
+    return found
+
+def discover_local():
+    valid=[]; rejected=[]
+    for path in local_packages():
+        try:
+            version=inspect_package(path)
+            valid.append((version_key(version),version,path))
+        except Exception as exc:
+            rejected.append((path,str(exc) or exc.__class__.__name__))
+    valid.sort(key=lambda item:item[0],reverse=True)
+    rejected.sort(key=lambda item:str(item[0]).lower())
+    return valid,rejected
+
+def local_scan_report():
+    valid,rejected=discover_local()
+    lines=['Local update scan:','Searched:']
+    lines.extend('  - '+str(path) for path in UPDATE_DIRS)
+    if valid:
+        lines.append('Valid packages:')
+        lines.extend(f'  - {path} (CozOS {version})' for _,version,path in valid)
+    else: lines.append('Valid packages: none')
+    if rejected:
+        lines.append('Rejected packages:')
+        lines.extend(f'  - {path}: {reason}' for path,reason in rejected)
+    return '\n'.join(lines)
+
 def newest_local():
-    if not UPDATES.exists(): return None
-    candidates=[]
-    for path in UPDATES.glob('CozOS-G350-Update-*.zip'):
-        try: candidates.append((version_key(inspect_package(path)),path))
-        except Exception: continue
-    return max(candidates,key=lambda item:item[0])[1] if candidates else None
+    valid,_=discover_local()
+    return valid[0][2] if valid else None
 
 def install_local(cb=None):
     package=newest_local()
-    if not package: raise RuntimeError('No valid update ZIP found in SHARE/cozos-updates')
+    if not package: raise RuntimeError('No valid CozOS update ZIP was found.\n\n'+local_scan_report())
+    progress(cb,1,'Selected local package: '+str(package))
     return install_package(package,cb=cb)
 
 def fetch_online(cb=None):

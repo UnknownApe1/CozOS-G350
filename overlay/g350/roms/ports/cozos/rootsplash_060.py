@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""CozOS 0.6.1 upgrade-aware KNULLI splash helper."""
+"""CozOS 0.6.2 upgrade-aware KNULLI splash helper."""
 import sys
 from pathlib import Path
 import rootsplash as legacy
 
-VERSION='0.6.1'
+VERSION='0.6.2'
 legacy.VERSION=VERSION
 
 
