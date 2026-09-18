@@ -3,27 +3,27 @@
 ## Requirements
 
 - BATLEXP G350.
-- Official KNULLI G350 installation. CozOS 0.6.1 retains the hardware-tested
+- Official KNULLI G350 installation. CozOS 0.6.2 retains the hardware-tested
   0.4.4/0.5.x behavior on KNULLI Scarab 2026-05-10.
 - A backup of the working SD card is strongly recommended.
 
-## First install or upgrade to 0.6.1
+## First install or upgrade to 0.6.2
 
-1. Download `releases/CozOS-G350-Overlay-0.6.1.zip`.
+1. Download `releases/CozOS-G350-Overlay-0.6.2.zip`.
 2. Verify its SHA-256 against the adjacent `.sha256` file if possible.
 3. Extract the ZIP on a computer. Do not flash the ZIP.
 4. Copy the contents of its `roms/ports` directory to the existing `roms/ports`
    directory on KNULLI's writable `SHARE` partition.
 5. Merge/replace the older CozOS files when prompted.
 6. Boot KNULLI and refresh the game list if the Ports entry is absent.
-7. Run `CozOS Control Center` from Ports. On its first 0.6.1 run, the stable
+7. Run `CozOS Control Center` from Ports. On its first 0.6.2 run, the stable
    launcher safely bootstraps the application to:
 
 ```text
-/userdata/system/cozos/apps/0.6.1
+/userdata/system/cozos/apps/0.6.2
 ```
 
-8. Choose `Install or repair CozOS 0.6.1`.
+8. Choose `Install or repair CozOS 0.6.2`.
 9. Wait for completion. Creating the KNULLI rootfs overlay can take several
    minutes. Do not reset or remove power while it is running.
 10. Refresh the game list or reboot normally. From then on, use
@@ -32,13 +32,11 @@
 The installer hardware-gates itself to G350/BATLEXP, verifies required KNULLI
 interfaces, stores rollback metadata before writes, and checks installed files.
 
-## Upgrading from 0.6.0
+## Upgrading from 0.6.1
 
-Copy the unopened `CozOS-G350-Update-0.6.1.zip` to `SHARE/cozos-updates`.
-Open the existing 0.6.0 Control Center in Ports and install the local update.
-Exit, then open the Ports Control Center one final time. CozOS 0.6.1 creates
-and checksum-verifies the Tools launcher before hiding Ports. Refresh the game
-list or reboot; all later Control Center use and updates are under Tools.
+Copy the unopened `CozOS-G350-Update-0.6.2.zip` to `SHARE/cozos-updates`.
+Open `Tools → CozOS Control Center` and choose `Find and install/repair a local
+update`. Exit and reopen Control Center after activation.
 
 ## Local versioned updates
 
@@ -49,7 +47,9 @@ SHARE/cozos-updates
 ```
 
 Open `Tools → CozOS Control Center` and choose
-`Install local update from SHARE/cozos-updates`.
+`Find and install/repair a local update`. CozOS also checks the SHARE root and
+`SHARE/roms/ports`. Status diagnostics list valid packages and exact rejection
+reasons. Installing the active version again performs a safe repair.
 The updater validates the update manifest and every packaged SHA-256, rejects
 unsafe ZIP paths, stages the new application in a separate version directory,
 and changes `/userdata/system/cozos/active-version` only after validation and
@@ -89,7 +89,7 @@ output is stored under:
 ## Splash upgrade safety
 
 CozOS keeps the original KNULLI system splash as the rollback source. During an
-upgrade, 0.6.1 may replace either that verified original image or the exact
+upgrade, 0.6.2 may replace either that verified original image or the exact
 checksum-verified splash installed by an older CozOS release. Any unrecognized
 manual/outside edit still stops the splash update instead of being overwritten.
 

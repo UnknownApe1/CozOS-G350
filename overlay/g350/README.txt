@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.6.1
+CozOS G350 SD-card overlay 0.6.2
 ===============================
 
 This is a targeted update for the BATLEXP G350 running KNULLI Scarab
@@ -10,8 +10,14 @@ checksum-verified, but this installed G350 build did not display it. KNULLI's
 own boot-logo guide warns that its boot-partition bootlogo.bmp process is not
 supported on every device. This G350 also had no original bootlogo.bmp.
 
-WHAT 0.6.1 ADDS
-0.6.1 moves CozOS Control Center into KNULLI's Tools section. Ports is used
+WHAT 0.6.2 ADDS
+0.6.2 makes updates easier to find and troubleshoot. Control Center now checks
+SHARE/cozos-updates, SHARE/roms/ports, and the SHARE root for update ZIPs. Its
+diagnostics list every valid package and the exact reason any candidate was
+rejected. Reinstalling 0.6.2 is supported as a safe repair, and replacement of
+the active app directory is rollback-safe if the final filesystem move fails.
+
+0.6.1 moved CozOS Control Center into KNULLI's Tools section. Ports is used
 only as the safe bootstrap. The Tools launcher is written and checksum-verified
 before the CozOS Ports launcher is hidden. An unrelated or manually edited
 launcher is never overwritten or removed.
@@ -50,15 +56,15 @@ INSTALL / UPGRADE
 4. Put the card in the G350 and boot. Refresh the game list if required.
 5. Open Ports and run "CozOS Control Center" once. CozOS creates and verifies
    its permanent Tools launcher before hiding the Ports bootstrap.
-6. Choose "Install or repair CozOS 0.6.1".
+6. Choose "Install or repair CozOS 0.6.2".
 7. Wait for it to finish, then refresh the game list or reboot normally.
 8. From then on, open CozOS Control Center from Tools.
 
-UPGRADE FROM 0.6.0
-Put the unopened CozOS-G350-Update-0.6.1.zip in SHARE/cozos-updates. Open the
-0.6.0 Control Center in Ports and install the local update. Exit and open the
-Ports Control Center one final time; 0.6.1 automatically creates the verified
-Tools entry and hides Ports. Refresh the game list or reboot.
+UPGRADE FROM 0.6.1
+Put the unopened CozOS-G350-Update-0.6.2.zip in SHARE/cozos-updates. Open
+CozOS Control Center in Tools and choose "Find and install/repair a local
+update". After it completes, exit and reopen Control Center. Refresh the game
+list or reboot if requested.
 
 The overlay-saving step can take several minutes. Do not power off while the
 installer is running. You do not need to uninstall an older CozOS first.

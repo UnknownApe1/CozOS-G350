@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""CozOS 0.6.1 Control Center management layer."""
+"""CozOS 0.6.2 Control Center management layer."""
 import hashlib, json, os, shutil, subprocess, sys, traceback
 from pathlib import Path
 import control_center as legacy
 import updater
 
-VERSION='0.6.1'
+VERSION='0.6.2'
 legacy.VERSION=VERSION
 
 TOOLS_LAUNCHER=legacy.ROOT/'userdata/roms/tools/CozOS Control Center.sh'
@@ -122,7 +122,7 @@ def install_or_repair():
         messages.append('Tools Control Center:\n'+install_tools_launcher())
     except Exception as exc:
         return 1,'\n\n'.join(messages)+'\n\nTools migration stopped safely: '+str(exc)
-    return 0,'\n\n'.join(messages)+'\n\nCozOS 0.6.1 is installed. Refresh the game list or reboot, then open Control Center from Tools.'
+    return 0,'\n\n'.join(messages)+'\n\nCozOS 0.6.2 is installed. Refresh the game list or reboot, then open Control Center from Tools.'
 
 
 def status():
@@ -136,7 +136,8 @@ def status():
            'Tools launcher: '+('PASS' if TOOLS_LAUNCHER.is_file() else 'MISSING'),
            'Ports bootstrap: '+('HIDDEN' if not PORTS_LAUNCHER.exists() else 'PRESENT'),'',
            'Overlay diagnostics: '+('PASS' if overlay_rc==0 else 'FAILED'),overlay_text,'',
-           'Boot splash: '+('PASS' if splash_rc==0 else 'FAILED'),splash_text]
+           'Boot splash: '+('PASS' if splash_rc==0 else 'FAILED'),splash_text,'',
+           updater.local_scan_report()]
     report='\n'.join(lines).rstrip()+'\n'
     legacy.STATE.mkdir(parents=True,exist_ok=True)
     legacy.atomic(legacy.STATE/'control-center-report.txt',report.encode())
@@ -190,7 +191,7 @@ class UI(legacy.UI):
     def menu(self):
         items=[('1','Install or repair CozOS '+VERSION),('2','Status and diagnostics'),
                ('3','Back up KNULLI settings'),('4','Restore latest settings backup'),
-               ('5','Install local update from SHARE/cozos-updates'),
+               ('5','Find and install/repair a local update'),
                ('6','Check and install online update'),('7','Roll back to previous CozOS version'),
                ('8','Version and update information'),('9','Remove CozOS / complete rollback'),('0','Exit')]
         if not self.interactive:
@@ -232,7 +233,7 @@ def main():
                 elif ui.confirm('Restore settings','Restore the newest verified settings backup?\n\n'+str(available[0])+'\n\nA safety backup will be created first.'):
                     rc,msg=legacy.restore_latest(); ui.message('Restore complete' if not rc else 'Restore stopped',msg)
             elif choice=='5':
-                if ui.confirm('Local update','Install the newest verified CozOS update ZIP from SHARE/cozos-updates?'):
+                if ui.confirm('Local update','Find and install the newest verified CozOS update ZIP?\n\nSearched locations:\n- SHARE/cozos-updates\n- SHARE/roms/ports\n- SHARE root\n\nInstalling the current version safely repairs its managed files.'):
                     rc,msg=update_local(); ui.message('Update complete' if not rc else 'Update stopped',msg)
             elif choice=='6':
                 if ui.confirm('Online update','Connect to the CozOS release index, download, verify, and install the newest update?'):
@@ -242,7 +243,7 @@ def main():
                     rc,msg=rollback_version(); ui.message('Rollback complete' if not rc else 'Rollback stopped',msg)
             elif choice=='8':
                 active=updater.current_version() or 'bootstrap copy'
-                ui.message('Version and updates',f'Package version: {VERSION}\nActive managed version: {active}\n\nLocal updates: /userdata/cozos-updates\nOnline index: {updater.INDEX_URL}\n\nUpdate log: /userdata/system/cozos/logs/updates.log\n\nUpdates are overlay application files, never firmware images.')
+                ui.message('Version and updates',f'Package version: {VERSION}\nActive managed version: {active}\n\n{updater.local_scan_report()}\n\nOnline index: {updater.INDEX_URL}\n\nUpdate log: /userdata/system/cozos/logs/updates.log\n\nUpdates are overlay application files, never firmware images.')
             elif choice=='9':
                 if ui.confirm('Complete rollback','Remove CozOS and restore its verified backups?\n\nROMs, BIOS, saves, save states, and media are not deleted.'):
                     rc,msg=remove_cozos(); ui.message('Rollback complete' if not rc else 'Rollback stopped',msg)
