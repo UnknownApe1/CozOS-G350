@@ -1,4 +1,4 @@
-CozOS G350 SD-card overlay 0.6.2
+CozOS G350 SD-card overlay 0.6.3
 ===============================
 
 This is a targeted update for the BATLEXP G350 running KNULLI Scarab
@@ -10,8 +10,15 @@ checksum-verified, but this installed G350 build did not display it. KNULLI's
 own boot-logo guide warns that its boot-partition bootlogo.bmp process is not
 supported on every device. This G350 also had no original bootlogo.bmp.
 
-WHAT 0.6.2 ADDS
-0.6.2 makes updates easier to find and troubleshoot. Control Center now checks
+WHAT 0.6.3 ADDS
+0.6.3 integrates the read-only G350 battery accuracy survey into Control
+Center. It can save a snapshot, record one-minute samples through a normal
+discharge session, report survey status, and package the result for analysis.
+It does not change charging, shutdown thresholds, the device tree, BatteryPlus,
+or the displayed percentage. A real G350 discharge curve is required before
+CozOS can safely derive a correction.
+
+0.6.2 made updates easier to find and troubleshoot. Control Center checks
 SHARE/cozos-updates, SHARE/roms/ports, and the SHARE root for update ZIPs. Its
 diagnostics list every valid package and the exact reason any candidate was
 rejected. Reinstalling 0.6.2 is supported as a safe repair, and replacement of
@@ -56,12 +63,12 @@ INSTALL / UPGRADE
 4. Put the card in the G350 and boot. Refresh the game list if required.
 5. Open Ports and run "CozOS Control Center" once. CozOS creates and verifies
    its permanent Tools launcher before hiding the Ports bootstrap.
-6. Choose "Install or repair CozOS 0.6.2".
+6. Choose "Install or repair CozOS 0.6.3".
 7. Wait for it to finish, then refresh the game list or reboot normally.
 8. From then on, open CozOS Control Center from Tools.
 
-UPGRADE FROM 0.6.1
-Put the unopened CozOS-G350-Update-0.6.2.zip in SHARE/cozos-updates. Open
+UPGRADE FROM 0.6.2
+Put the unopened CozOS-G350-Update-0.6.3.zip in SHARE/cozos-updates. Open
 CozOS Control Center in Tools and choose "Find and install/repair a local
 update". After it completes, exit and reopen Control Center. Refresh the game
 list or reboot if requested.
