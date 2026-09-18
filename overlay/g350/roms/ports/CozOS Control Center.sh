@@ -6,7 +6,7 @@ BUNDLED="${HERE}/cozos"
 STATE="${COZOS_STATE:-/userdata/system/cozos}"
 APPS="${STATE}/apps"
 ACTIVE="${STATE}/active-version"
-BOOTSTRAP_VERSION="0.6.2"
+BOOTSTRAP_VERSION="0.6.3"
 
 if ! command -v python3 >/dev/null 2>&1; then
     echo "CozOS needs the Python 3 included with supported KNULLI builds."
