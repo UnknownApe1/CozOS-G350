@@ -3,27 +3,27 @@
 ## Requirements
 
 - BATLEXP G350.
-- Official KNULLI G350 installation. CozOS 0.6.2 retains the hardware-tested
+- Official KNULLI G350 installation. CozOS 0.6.3 retains the hardware-tested
   0.4.4/0.5.x behavior on KNULLI Scarab 2026-05-10.
 - A backup of the working SD card is strongly recommended.
 
-## First install or upgrade to 0.6.2
+## First install or upgrade to 0.6.3
 
-1. Download `releases/CozOS-G350-Overlay-0.6.2.zip`.
+1. Download `releases/CozOS-G350-Overlay-0.6.3.zip`.
 2. Verify its SHA-256 against the adjacent `.sha256` file if possible.
 3. Extract the ZIP on a computer. Do not flash the ZIP.
 4. Copy the contents of its `roms/ports` directory to the existing `roms/ports`
    directory on KNULLI's writable `SHARE` partition.
 5. Merge/replace the older CozOS files when prompted.
 6. Boot KNULLI and refresh the game list if the Ports entry is absent.
-7. Run `CozOS Control Center` from Ports. On its first 0.6.2 run, the stable
+7. Run `CozOS Control Center` from Ports. On its first 0.6.3 run, the stable
    launcher safely bootstraps the application to:
 
 ```text
-/userdata/system/cozos/apps/0.6.2
+/userdata/system/cozos/apps/0.6.3
 ```
 
-8. Choose `Install or repair CozOS 0.6.2`.
+8. Choose `Install or repair CozOS 0.6.3`.
 9. Wait for completion. Creating the KNULLI rootfs overlay can take several
    minutes. Do not reset or remove power while it is running.
 10. Refresh the game list or reboot normally. From then on, use
@@ -32,9 +32,9 @@
 The installer hardware-gates itself to G350/BATLEXP, verifies required KNULLI
 interfaces, stores rollback metadata before writes, and checks installed files.
 
-## Upgrading from 0.6.1
+## Upgrading from 0.6.2
 
-Copy the unopened `CozOS-G350-Update-0.6.2.zip` to `SHARE/cozos-updates`.
+Copy the unopened `CozOS-G350-Update-0.6.3.zip` to `SHARE/cozos-updates`.
 Open `Tools → CozOS Control Center` and choose `Find and install/repair a local
 update`. Exit and reopen Control Center after activation.
 
@@ -75,6 +75,22 @@ Update activity is recorded at:
 /userdata/system/cozos/logs/updates.log
 ```
 
+## Battery accuracy survey
+
+Open `Tools → CozOS Control Center → Battery accuracy survey`. Start fully
+charged, begin the survey, unplug, and use the G350 normally until its normal
+low-battery shutdown. Recharge only enough to boot, then choose `Stop and
+package the survey`. The upload-ready result is written to:
+
+```text
+/userdata/system/cozos/battery-survey-latest.zip
+```
+
+The logger samples once per minute. It is read-only for battery hardware and
+KNULLI configuration; it does not change charging, shutdown thresholds, the
+device tree, BatteryPlus, or the displayed percentage. Do not force the battery
+below the device's normal shutdown point.
+
 ## Status report
 
 Open `CozOS Control Center` and choose `Status and diagnostics`. Diagnostic
@@ -89,7 +105,7 @@ output is stored under:
 ## Splash upgrade safety
 
 CozOS keeps the original KNULLI system splash as the rollback source. During an
-upgrade, 0.6.2 may replace either that verified original image or the exact
+upgrade, 0.6.3 may replace either that verified original image or the exact
 checksum-verified splash installed by an older CozOS release. Any unrecognized
 manual/outside edit still stops the splash update instead of being overwritten.
 
