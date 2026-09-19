@@ -11,12 +11,12 @@ keeps KNULLI as the maintained Linux/emulator base.
 
 ## Download
 
-### CozOS G350 0.6.2
+### CozOS G350 0.6.3
 
 The release contains two packages:
 
-- `CozOS-G350-Overlay-0.6.2.zip` — full first-install/repair package.
-- `CozOS-G350-Update-0.6.2.zip` — versioned Control Center update package.
+- `CozOS-G350-Overlay-0.6.3.zip` — full first-install/repair package.
+- `CozOS-G350-Update-0.6.3.zip` — versioned Control Center update package.
 
 Verify downloads against the adjacent `.sha256` files in `releases/`.
 
@@ -43,19 +43,23 @@ The hardware baseline is a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
   SHARE root, with exact rejection reasons, progress, persistent logs, and a
   restart notice. Same-version packages can safely repair managed app files.
 - Optional checksum-verified online updates.
+- A read-only battery survey built into Control Center that records the RK817
+  driver percentage, KNULLI-visible percentage, voltage, current, charging
+  state, and available BatteryPlus/device-tree metadata. It never changes
+  charging or shutdown behavior.
 
-## First install / upgrade to 0.6.2
+## First install / upgrade to 0.6.3
 
 1. Install and boot the official KNULLI G350 image at least once.
-2. Extract `CozOS-G350-Overlay-0.6.2.zip` on a computer. Do not flash the ZIP.
+2. Extract `CozOS-G350-Overlay-0.6.3.zip` on a computer. Do not flash the ZIP.
 3. Copy the **contents** of its `roms/ports` folder into the existing
    `roms/ports` folder on KNULLI's `SHARE` partition.
 4. Allow the `cozos` folder and files to merge/replace older versions.
 5. Boot the G350 and open **Ports → CozOS Control Center**.
-6. On its first 0.6.2 launch, Ports bootstraps the application into
-   `/userdata/system/cozos/apps/0.6.2`, creates and verifies its Tools launcher,
+6. On its first 0.6.3 launch, Ports bootstraps the application into
+   `/userdata/system/cozos/apps/0.6.3`, creates and verifies its Tools launcher,
    and only then hides the Ports launcher.
-7. Choose **Install or repair CozOS 0.6.2** and let the overlay save finish.
+7. Choose **Install or repair CozOS 0.6.3** and let the overlay save finish.
 8. Refresh the game list or reboot, then use **Tools → CozOS Control Center**.
 
 You do not need to uninstall an older CozOS version before upgrading.
@@ -100,7 +104,7 @@ future work and for upstreamable patches.
 ## Known limitation
 
 The G350 rumble motor activates briefly during early boot. That occurs before
-the current CozOS user-space overlay loads, so 0.6.2 does not change it.
+the current CozOS user-space overlay loads, so 0.6.3 does not change it.
 
 ## Source layout
 

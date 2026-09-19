@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.3 — integrated G350 battery survey
+
+- Adds a read-only battery accuracy survey to Control Center rather than
+  installing separate Ports launchers.
+- Records the RK817 driver percentage, KNULLI-visible percentage, voltage,
+  current, charge state, temperature, and available BatteryPlus/device-tree
+  metadata once per minute.
+- Adds one-time snapshots, live survey status, sample counts, safe stop/package,
+  and an upload-ready `battery-survey-latest.zip`.
+- Does not change charging, shutdown thresholds, the device tree, BatteryPlus,
+  or displayed battery percentage before a real G350 discharge curve is
+  analyzed.
+- Stops a running survey during complete CozOS removal and refuses unsafe
+  session paths or unrelated reused process IDs.
+- Expands the regression suite to 20 tests covering battery collection and
+  packaging alongside updater, rollback, launcher, and splash safety.
+
 ## 0.6.2 — updater reliability and diagnostics
 
 - Searches `SHARE/cozos-updates`, `SHARE/roms/ports`, and the SHARE root for
