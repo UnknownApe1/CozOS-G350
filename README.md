@@ -15,10 +15,12 @@ keeps KNULLI as the maintained Linux/emulator base.
 
 The release contains two packages:
 
-- `CozOS-G350-Overlay-0.6.3.zip` — full first-install/repair package.
-- `CozOS-G350-Update-0.6.3.zip` — versioned Control Center update package.
+- **[Download CozOS-G350-Overlay-0.6.3.zip](https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/CozOS-G350-Overlay-0.6.3.zip)** — full first-install/repair package.
+  [SHA-256 checksum](https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/CozOS-G350-Overlay-0.6.3.zip.sha256)
+- **[Download CozOS-G350-Update-0.6.3.zip](https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/CozOS-G350-Update-0.6.3.zip)** — update for an existing CozOS installation.
+  [SHA-256 checksum](https://raw.githubusercontent.com/UnknownApe1/CozOS-G350/knulli-main/releases/CozOS-G350-Update-0.6.3.zip.sha256)
 
-Verify downloads against the adjacent `.sha256` files in `releases/`.
+The Control Center online updater also uses v0.6.3 as the current latest release.
 
 The hardware baseline is a BATLEXP G350 with **KNULLI Scarab 2026-05-10**.
 
