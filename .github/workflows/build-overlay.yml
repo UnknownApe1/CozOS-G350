@@ -19,7 +19,7 @@ on:
       - ".github/workflows/build-overlay.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-and-package:
@@ -53,3 +53,50 @@ jobs:
             dist/index.json
           if-no-files-found: error
           retention-days: 30
+      - name: Publish GitHub release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/knulli-main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          tag="v${version}"
+
+          cat > /tmp/cozos-release-notes.md <<EOF
+          ## CozOS G350 ${tag}
+
+          This release integrates CozOS tools, updater improvements, G350 performance defaults, rollback support, and a read-only battery accuracy survey.
+
+          ### New in v0.6.3
+          - Battery snapshot and full-discharge survey with one-minute sampling
+          - Survey status, sample count, safe stop, and upload-ready packaging
+          - RK817/KNULLI-visible percentage, voltage, current, status, temperature, and available BatteryPlus/device-tree metadata
+          - Complete-removal cleanup for any running survey
+          - 20 automated regression tests
+
+          The battery survey does not change charging, shutdown thresholds, the device tree, BatteryPlus, or the displayed percentage.
+
+          ### Installation
+          - Fresh install: download `CozOS-G350-Overlay-${version}.zip`
+          - Existing CozOS: download `CozOS-G350-Update-${version}.zip` or use **Check and install online update** in Control Center
+
+          Verify the matching SHA-256 file before installation.
+          EOF
+
+          assets=(
+            "dist/CozOS-G350-Overlay-${version}.zip"
+            "dist/CozOS-G350-Overlay-${version}.zip.sha256"
+            "dist/CozOS-G350-Update-${version}.zip"
+            "dist/CozOS-G350-Update-${version}.zip.sha256"
+          )
+
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${assets[@]}" --clobber
+            gh release edit "${tag}" --title "CozOS G350 ${tag}" --notes-file /tmp/cozos-release-notes.md
+          else
+            gh release create "${tag}" "${assets[@]}" \
+              --target "${GITHUB_SHA}" \
+              --title "CozOS G350 ${tag}" \
+              --notes-file /tmp/cozos-release-notes.md
+          fi
