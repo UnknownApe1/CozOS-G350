@@ -78,8 +78,8 @@ jobs:
           The battery survey does not change charging, shutdown thresholds, the device tree, BatteryPlus, or the displayed percentage.
 
           ### Installation
-          - Fresh install: download `CozOS-G350-Overlay-${version}.zip`
-          - Existing CozOS: download `CozOS-G350-Update-${version}.zip` or use **Check and install online update** in Control Center
+          - Fresh install: download **CozOS-G350-Overlay-${version}.zip**
+          - Existing CozOS: download **CozOS-G350-Update-${version}.zip** or use **Check and install online update** in Control Center
 
           Verify the matching SHA-256 file before installation.
           EOF
